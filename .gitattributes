@@ -1,0 +1,2 @@
+Procfile linguist-language=Text
+Procfile -linguist-detectable
