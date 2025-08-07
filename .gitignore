@@ -68,7 +68,7 @@ backup/
 config_local.py
 local_settings.py
 
-# Storage data (será recriado)
-storage/database/
-storage/logs/
-storage/exports/
+# Storage data (será recriado) - temporariamente comentado para Railway
+# storage/database/
+# storage/logs/
+# storage/exports/

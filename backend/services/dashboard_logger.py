@@ -8,7 +8,7 @@ Sistema para gerar dados para o dashboard web
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Any
 
 # Configurar caminhos para nova estrutura
@@ -22,8 +22,53 @@ class DashboardLogger:
         self.partidas_cache = []
         self.sinais_cache = []
         
+        # Cria diretórios e arquivos se não existirem
+        self.criar_estrutura_storage()
+        
         # Carrega dados existentes
         self.carregar_dados_existentes()
+    
+    def criar_estrutura_storage(self):
+        """Cria a estrutura de diretórios e arquivos iniciais se não existirem"""
+        try:
+            # Criar diretório storage/database se não existir
+            storage_dir = os.path.dirname(self.arquivo_status)
+            os.makedirs(storage_dir, exist_ok=True)
+            
+            # Criar bot_status.json se não existir
+            if not os.path.exists(self.arquivo_status):
+                status_inicial = {
+                    "ativo": True,
+                    "ultimo_update": datetime.now().isoformat(),
+                    "requests_restantes": 3600,
+                    "proxima_verificacao": (datetime.now() + timedelta(minutes=1)).isoformat()
+                }
+                with open(self.arquivo_status, 'w', encoding='utf-8') as f:
+                    json.dump(status_inicial, f, ensure_ascii=False, indent=2)
+            
+            # Criar partidas_analisadas.json se não existir
+            if not os.path.exists(self.arquivo_partidas):
+                partidas_inicial = {
+                    "partidas": [],
+                    "ultima_atualizacao": datetime.now().isoformat(),
+                    "total_analisadas": 0
+                }
+                with open(self.arquivo_partidas, 'w', encoding='utf-8') as f:
+                    json.dump(partidas_inicial, f, ensure_ascii=False, indent=2)
+            
+            # Criar sinais_gerados.json se não existir
+            if not os.path.exists(self.arquivo_sinais):
+                sinais_inicial = {
+                    "sinais_gerados": [],
+                    "total_sinais": 0,
+                    "ultima_atualizacao": datetime.now().isoformat()
+                }
+                with open(self.arquivo_sinais, 'w', encoding='utf-8') as f:
+                    json.dump(sinais_inicial, f, ensure_ascii=False, indent=2)
+                    
+        except Exception as e:
+            print(f"⚠️ Erro ao criar estrutura storage: {e}")
+            # Continua mesmo com erro - funciona em memória
     
     def carregar_dados_existentes(self):
         """Carrega dados existentes dos arquivos"""
@@ -43,15 +88,22 @@ class DashboardLogger:
     
     def atualizar_status_bot(self, ativo: bool, requests_restantes: int, proxima_verificacao: str = None):
         """Atualiza status do bot"""
-        status = {
-            'ativo': ativo,
-            'ultimo_update': datetime.now().isoformat(),
-            'requests_restantes': requests_restantes,
-            'proxima_verificacao': proxima_verificacao
-        }
-        
-        with open(self.arquivo_status, 'w', encoding='utf-8') as f:
-            json.dump(status, f, ensure_ascii=False, indent=2)
+        try:
+            status = {
+                'ativo': ativo,
+                'ultimo_update': datetime.now().isoformat(),
+                'requests_restantes': requests_restantes,
+                'proxima_verificacao': proxima_verificacao
+            }
+            
+            # Garantir que o diretório existe
+            os.makedirs(os.path.dirname(self.arquivo_status), exist_ok=True)
+            
+            with open(self.arquivo_status, 'w', encoding='utf-8') as f:
+                json.dump(status, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"⚠️ Aviso: Não foi possível salvar status do bot: {e}")
+            # Continua funcionando mesmo sem salvar - Railway não precisa do arquivo
     
     def log_partida_analisada(self, 
                             jogador1: str, 
@@ -112,9 +164,13 @@ class DashboardLogger:
         if len(self.partidas_cache) > 100:
             self.partidas_cache = self.partidas_cache[-100:]
         
-        # Salva no arquivo
-        with open(self.arquivo_partidas, 'w', encoding='utf-8') as f:
-            json.dump(self.partidas_cache, f, ensure_ascii=False, indent=2)
+        # Salva no arquivo (com tratamento de erro)
+        try:
+            os.makedirs(os.path.dirname(self.arquivo_partidas), exist_ok=True)
+            with open(self.arquivo_partidas, 'w', encoding='utf-8') as f:
+                json.dump(self.partidas_cache, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"⚠️ Aviso: Não foi possível salvar partida analisada: {e}")
     
     def log_sinal_gerado(self,
                         tipo: str,
@@ -144,9 +200,13 @@ class DashboardLogger:
         if len(self.sinais_cache) > 50:
             self.sinais_cache = self.sinais_cache[-50:]
         
-        # Salva no arquivo
-        with open(self.arquivo_sinais, 'w', encoding='utf-8') as f:
-            json.dump(self.sinais_cache, f, ensure_ascii=False, indent=2)
+        # Salva no arquivo (com tratamento de erro)
+        try:
+            os.makedirs(os.path.dirname(self.arquivo_sinais), exist_ok=True)
+            with open(self.arquivo_sinais, 'w', encoding='utf-8') as f:
+                json.dump(self.sinais_cache, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"⚠️ Aviso: Não foi possível salvar sinal gerado: {e}")
     
     def _calcular_momentum_individual(self, placar):
         """Calcula momentum score individual baseado no placar"""
