@@ -1,77 +1,27 @@
 """
-Database manager for TennisIQ - Railway PostgreSQL
+Database manager for TennisIQ - SQLite/JSON
 """
 import os
 import json
-import psycopg2
-from psycopg2.extras import RealDictCursor
 from datetime import datetime
-import sqlite3
-from urllib.parse import urlparse
 
 class DatabaseManager:
     def __init__(self):
-        # Usar SQLite sempre (funciona local e na nuvem)
-        self.db_path = "storage/database/dashboard_data.db"
-        self.init_sqlite()
+        # Usar JSON simples (funciona local e na nuvem)
+        self.storage_path = "storage/database"
+        self.init_storage()
     
-    def init_postgres(self):
-        """Initialize PostgreSQL tables"""
+    def init_storage(self):
+        """Initialize storage directories"""
         try:
-            with psycopg2.connect(self.db_url) as conn:
-                with conn.cursor() as cur:
-                    # Create tables
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS partidas_analisadas (
-                            id SERIAL PRIMARY KEY,
-                            data_analise TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            partida_info JSONB,
-                            resultado TEXT,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        )
-                    """)
-                    
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS historico_apostas (
-                            id SERIAL PRIMARY KEY,
-                            data_aposta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            aposta_info JSONB,
-                            resultado TEXT,
-                            valor_green DECIMAL(10,2),
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        )
-                    """)
-                    
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS estatisticas_greens (
-                            id SERIAL PRIMARY KEY,
-                            data_calculo TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            total_apostas INTEGER,
-                            total_greens INTEGER,
-                            taxa_acerto DECIMAL(5,2),
-                            valor_total DECIMAL(10,2),
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        )
-                    """)
-                    
-                    conn.commit()
-                    print("✅ PostgreSQL inicializado com sucesso")
+            os.makedirs(self.storage_path, exist_ok=True)
+            os.makedirs("backend/results", exist_ok=True)
+            print("✅ Storage inicializado com sucesso")
         except Exception as e:
-            print(f"❌ Erro ao inicializar PostgreSQL: {e}")
-    
-    def init_sqlite(self):
-        """Initialize SQLite for local development"""
-        try:
-            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-            conn = sqlite3.connect(self.db_path)
-            conn.close()
-            print("✅ SQLite inicializado com sucesso")
-        except Exception as e:
-            print(f"❌ Erro ao inicializar SQLite: {e}")
+            print(f"❌ Erro ao inicializar storage: {e}")
     
     def save_partida_analisada(self, partida_data):
         """Save analyzed match to database"""
-        # Usar SQLite sempre
         try:
             json_file = "storage/database/partidas_analisadas.json"
             os.makedirs(os.path.dirname(json_file), exist_ok=True)
@@ -95,7 +45,6 @@ class DatabaseManager:
     
     def get_estatisticas(self):
         """Get statistics from database"""
-        # Usar JSON sempre
         try:
             json_file = "backend/results/historico_apostas.json"
             if os.path.exists(json_file):
