@@ -1184,6 +1184,15 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                         # Calcular EV usando momentum e odds disponíveis
                         momentum = oportunidade.get('momentum', 0)
                         odd_valor = odds_data.get('jogador1_odd', 0)
+                        
+                        # Converter para float para evitar erro de comparação string vs int
+                        try:
+                            momentum = float(momentum) if momentum else 0
+                            odd_valor = float(odd_valor) if odd_valor else 0
+                        except (ValueError, TypeError):
+                            momentum = 0
+                            odd_valor = 0
+                            
                         if momentum > 0 and odd_valor > 1:
                             try:
                                 probabilidade = momentum / 100
@@ -1277,6 +1286,15 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                         # Calcular EV usando momentum e odds disponíveis
                         momentum = oportunidade.get('momentum', 0)
                         odd_valor = odds_data.get('jogador1_odd', 0)
+                        
+                        # Converter para float para evitar erro de comparação string vs int
+                        try:
+                            momentum = float(momentum) if momentum else 0
+                            odd_valor = float(odd_valor) if odd_valor else 0
+                        except (ValueError, TypeError):
+                            momentum = 0
+                            odd_valor = 0
+                            
                         if momentum > 0 and odd_valor > 1:
                             try:
                                 probabilidade = momentum / 100
@@ -1339,6 +1357,16 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     if ev_partida == 0:
                         # Calcular EV usando momentum e odds disponíveis
                         momentum = oportunidade.get('momentum', 0)
+                        odd_valor = odds_data.get('jogador1_odd', 0)
+                        
+                        # Converter para float para evitar erro de comparação string vs int
+                        try:
+                            momentum = float(momentum) if momentum else 0
+                            odd_valor = float(odd_valor) if odd_valor else 0
+                        except (ValueError, TypeError):
+                            momentum = 0
+                            odd_valor = 0
+                            
                         if momentum > 0 and odd_valor > 1:
                             try:
                                 probabilidade = momentum / 100
