@@ -1,0 +1,324 @@
+{
+  "tennis_api_endpoints_data": {
+    "data_extraction_timestamp": "2025-08-03T06:20:00Z",
+    "api_base_url": "https://api.b365api.com",
+    "sport_id": 13,
+    "endpoints": {
+      "inplay_events": {
+        "endpoint": "/v2/events/inplay",
+        "description": "Eventos ao vivo",
+        "sample_data": {
+          "success": 1,
+          "results": [
+            {
+              "id": "10408891",
+              "sport_id": "13",
+              "time": "1722673020",
+              "time_status": "1",
+              "league": {
+                "id": "12345",
+                "name": "Challenger Hagen",
+                "cc": "DE"
+              },
+              "home": {
+                "id": "98765",
+                "name": "Yannick Hanfmann",
+                "image_id": "123456"
+              },
+              "away": {
+                "id": "98766",
+                "name": "Olle Wallin",
+                "image_id": "123457"
+              },
+              "ss": "6-4 2-1",
+              "stats": {
+                "1": {
+                  "home": "6",
+                  "away": "4"
+                },
+                "2": {
+                  "home": "2",
+                  "away": "1"
+                }
+              },
+              "extra": {
+                "stadium_data": {
+                  "id": "456",
+                  "name": "Center Court",
+                  "city": "Hagen",
+                  "country": "Germany"
+                }
+              }
+            }
+          ]
+        },
+        "useful_fields": [
+          "id - ID único do evento",
+          "time - Timestamp do início",
+          "league.name - Nome do torneio",
+          "home.name - Jogador 1",
+          "away.name - Jogador 2",
+          "ss - Score atual",
+          "time_status - Status da partida"
+        ]
+      },
+      "upcoming_events": {
+        "endpoint": "/v2/events/upcoming",
+        "description": "Próximos eventos",
+        "sample_data": {
+          "success": 1,
+          "results": [
+            {
+              "id": "10408900",
+              "sport_id": "13",
+              "time": "1722680400",
+              "league": {
+                "id": "12346",
+                "name": "ATP Masters 1000 Montreal",
+                "cc": "CA"
+              },
+              "home": {
+                "id": "98767",
+                "name": "Novak Djokovic"
+              },
+              "away": {
+                "id": "98768",
+                "name": "Rafael Nadal"
+              }
+            }
+          ]
+        },
+        "useful_fields": [
+          "id - ID único do evento",
+          "time - Timestamp do início programado",
+          "league.name - Nome do torneio",
+          "home.name - Jogador 1",
+          "away.name - Jogador 2"
+        ]
+      },
+      "ended_events": {
+        "endpoint": "/v2/events/ended",
+        "description": "Eventos finalizados",
+        "sample_data": {
+          "success": 1,
+          "results": [
+            {
+              "id": "10408850",
+              "sport_id": "13",
+              "time": "1722666600",
+              "league": {
+                "id": "12347",
+                "name": "WTA 1000 Toronto",
+                "cc": "CA"
+              },
+              "home": {
+                "id": "98769",
+                "name": "Iga Swiatek"
+              },
+              "away": {
+                "id": "98770",
+                "name": "Aryna Sabalenka"
+              },
+              "ss": "6-3 6-4",
+              "scores": {
+                "1": {
+                  "home": "6",
+                  "away": "3"
+                },
+                "2": {
+                  "home": "6",
+                  "away": "4"
+                }
+              },
+              "winner": "1"
+            }
+          ]
+        },
+        "useful_fields": [
+          "id - ID único do evento",
+          "time - Timestamp do início",
+          "league.name - Nome do torneio",
+          "home.name - Jogador vencedor",
+          "away.name - Jogador perdedor",
+          "ss - Score final",
+          "winner - 1 para casa, 2 para visitante"
+        ]
+      },
+      "event_odds": {
+        "endpoint": "/v2/event/odds",
+        "description": "Odds de um evento específico",
+        "parameters": {
+          "event_id": "ID do evento",
+          "source": "bet365, bovada, pinnacle",
+          "odds_market": "13_1 (Match Winner)"
+        },
+        "sample_data": {
+          "success": 1,
+          "results": {
+            "stats": {
+              "matching_dir": 1,
+              "odds_update": {
+                "13_1": 1754212832
+              }
+            },
+            "odds": {
+              "13_1": {
+                "values": [
+                  {
+                    "id": "13_1_1",
+                    "odd": "1.45",
+                    "header": "1",
+                    "name": "Yannick Hanfmann"
+                  },
+                  {
+                    "id": "13_1_2", 
+                    "odd": "2.75",
+                    "header": "2",
+                    "name": "Olle Wallin"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "useful_fields": [
+          "odds.13_1.values[0].odd - Odd do jogador 1",
+          "odds.13_1.values[1].odd - Odd do jogador 2",
+          "odds.13_1.values[0].name - Nome do jogador 1",
+          "odds.13_1.values[1].name - Nome do jogador 2"
+        ],
+        "note": "Nem todos os eventos têm odds disponíveis - especialmente torneios menores (ITF, Challenger)"
+      },
+      "league_table": {
+        "endpoint": "/v2/league/table",
+        "description": "Tabela de classificação",
+        "sample_data": {
+          "success": 1,
+          "results": [
+            {
+              "league": {
+                "id": "12348",
+                "name": "ATP Rankings"
+              },
+              "table": [
+                {
+                  "id": "98771",
+                  "name": "Novak Djokovic",
+                  "pos": "1",
+                  "pts": "9910"
+                },
+                {
+                  "id": "98772", 
+                  "name": "Carlos Alcaraz",
+                  "pos": "2",
+                  "pts": "8855"
+                }
+              ]
+            }
+          ]
+        },
+        "useful_fields": [
+          "table[].name - Nome do jogador",
+          "table[].pos - Posição no ranking",
+          "table[].pts - Pontos no ranking"
+        ]
+      },
+      "player_image": {
+        "endpoint": "/v2/team/image",
+        "description": "Imagem do jogador",
+        "parameters": {
+          "team_id": "ID do jogador"
+        },
+        "sample_data": {
+          "success": 1,
+          "results": [
+            {
+              "id": "98765",
+              "image": "https://assets.b365api.com/images/team/b/98765.png"
+            }
+          ]
+        },
+        "useful_fields": [
+          "image - URL da imagem do jogador"
+        ]
+      },
+      "bet_sources": {
+        "endpoint": "/v2/bet365/start_sp",
+        "description": "Fontes de apostas disponíveis",
+        "sample_data": {
+          "success": 1,
+          "results": [
+            {
+              "id": "1",
+              "name": "bet365"
+            },
+            {
+              "id": "2", 
+              "name": "bovada"
+            },
+            {
+              "id": "3",
+              "name": "pinnacle"
+            }
+          ]
+        },
+        "useful_fields": [
+          "name - Nome da casa de apostas",
+          "id - ID da fonte"
+        ]
+      }
+    },
+    "odds_markets": {
+      "13_1": "Match Winner (Vencedor da Partida)",
+      "13_2": "Set Betting (Resultado por Sets)",
+      "13_3": "Total Games (Total de Games)",
+      "13_4": "Handicap Games",
+      "13_5": "Set 1 Winner (Vencedor do 1º Set)",
+      "13_6": "Set 2 Winner (Vencedor do 2º Set)",
+      "13_7": "Set 3 Winner (Vencedor do 3º Set)"
+    },
+    "time_status_codes": {
+      "0": "Não iniciado",
+      "1": "Ao vivo - 1º Set",
+      "2": "Ao vivo - 2º Set", 
+      "3": "Ao vivo - 3º Set",
+      "4": "Ao vivo - 4º Set",
+      "5": "Ao vivo - 5º Set",
+      "99": "Finalizado",
+      "100": "Cancelado",
+      "110": "Adiado"
+    },
+    "api_usage_notes": {
+      "rate_limit": "3600 requests per hour",
+      "recommended_safe_limit": "2880 requests per hour (80%)",
+      "delay_between_requests": "1.5 seconds",
+      "best_odds_sources": ["bet365", "pinnacle", "bovada"],
+      "tournaments_with_odds": ["ATP Tour", "WTA Tour", "Grand Slams", "Masters 1000"],
+      "tournaments_without_odds": ["ITF", "Challenger (alguns)", "Qualifiers"],
+      "current_live_matches": 38,
+      "data_quality": "Real-time data from professional tennis matches"
+    },
+    "recommended_endpoints_by_use_case": {
+      "live_monitoring": {
+        "primary": "/v2/events/inplay",
+        "secondary": "/v2/event/odds",
+        "fields": ["id", "league.name", "home.name", "away.name", "ss", "time_status"]
+      },
+      "betting_analysis": {
+        "primary": "/v2/event/odds", 
+        "secondary": "/v2/events/upcoming",
+        "fields": ["odds.13_1.values", "event_id", "source"]
+      },
+      "historical_analysis": {
+        "primary": "/v2/events/ended",
+        "secondary": "/v2/league/table", 
+        "fields": ["winner", "scores", "ss", "league.name"]
+      },
+      "player_research": {
+        "primary": "/v2/league/table",
+        "secondary": "/v2/team/image",
+        "fields": ["table[].name", "table[].pos", "table[].pts", "image"]
+      }
+    }
+  }
+}

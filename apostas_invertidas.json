@@ -1,0 +1,17 @@
+[
+  {
+    "timestamp": "2025-08-07T11:43:41.579932",
+    "tipo": "APOSTA_INVERTIDA",
+    "partida_original": "Merino/Negritu vs Campana Lee/Matusevich",
+    "target_invertido": "Campana Lee/Matusevich",
+    "odd_invertida": 2.0,
+    "score_mental": 320,
+    "fatores": [
+      "duplas_bonus",
+      "pos_tie_break_vencedor",
+      "recuperacao_apos_desvantagem"
+    ],
+    "ev_estimado": "+0.280",
+    "confianca": 80.0
+  }
+]

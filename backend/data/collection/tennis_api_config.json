@@ -1,0 +1,208 @@
+{
+  "api_config": {
+    "base_url": "https://api.b365api.com",
+    "sport_id": 13,
+    "sport_name": "tennis",
+    "timeout": 30,
+    "rate_limit_delay": 1.5,
+    "note": "API key será carregada automaticamente do arquivo config/config.json",
+    "rate_limits": {
+      "requests_per_hour": 3600,
+      "safe_requests_per_hour": 2880,
+      "min_delay_seconds": 1.25,
+      "burst_delay_seconds": 2.0,
+      "max_concurrent_requests": 1
+    }
+  },
+  "endpoints": {
+    "inplay_events": {
+      "url": "/v3/events/inplay",
+      "method": "GET",
+      "description": "Eventos de tênis em andamento",
+      "params": {
+        "sport_id": 13,
+        "token": "required"
+      }
+    },
+    "upcoming_events": {
+      "url": "/v3/events/upcoming",
+      "method": "GET", 
+      "description": "Próximos eventos de tênis",
+      "params": {
+        "sport_id": 13,
+        "token": "required",
+        "league_id": "optional",
+        "team_id": "optional", 
+        "cc": "optional",
+        "day": "optional (YYYYMMDD)",
+        "skip_esports": "optional",
+        "page": "optional (max 100)"
+      }
+    },
+    "ended_events": {
+      "url": "/v3/events/ended",
+      "method": "GET",
+      "description": "Eventos de tênis finalizados",
+      "params": {
+        "sport_id": 13,
+        "token": "required",
+        "league_id": "optional",
+        "team_id": "optional",
+        "cc": "optional", 
+        "day": "optional (YYYYMMDD, min 20160901)",
+        "skip_esports": "optional",
+        "page": "optional (max 100)"
+      }
+    },
+    "event_view": {
+      "url": "/v1/event/view",
+      "method": "GET",
+      "description": "Detalhes de um evento específico",
+      "params": {
+        "event_id": "required",
+        "token": "required"
+      }
+    },
+    "event_odds": {
+      "url": "/v2/event/odds", 
+      "method": "GET",
+      "description": "Odds de um evento específico",
+      "params": {
+        "event_id": "required",
+        "token": "required",
+        "source": "optional (bet365, 10bet, etc.)",
+        "since_time": "optional",
+        "odds_market": "optional"
+      }
+    },
+    "event_odds_summary": {
+      "url": "/v1/event/odds_summary",
+      "method": "GET", 
+      "description": "Resumo das odds de um evento",
+      "params": {
+        "event_id": "required",
+        "token": "required"
+      }
+    },
+    "tennis_ranking": {
+      "url": "/v1/tennis/ranking",
+      "method": "GET",
+      "description": "Rankings de tênis",
+      "params": {
+        "token": "required",
+        "type_id": "optional (1=Singles Men, 2=Doubles Men, 3=Singles Women, 4=Doubles Women)"
+      }
+    },
+    "player_info": {
+      "url": "/v1/player",
+      "method": "GET",
+      "description": "Informações de jogador",
+      "params": {
+        "player_id": "required",
+        "token": "required"
+      }
+    },
+    "league_info": {
+      "url": "/v1/league",
+      "method": "GET", 
+      "description": "Informações de liga/torneio",
+      "params": {
+        "sport_id": 13,
+        "token": "required",
+        "cc": "optional",
+        "page": "optional"
+      }
+    },
+    "events_search": {
+      "url": "/v1/events/search",
+      "method": "GET",
+      "description": "Busca de eventos por jogadores/times",
+      "params": {
+        "sport_id": 13,
+        "token": "required",
+        "home": "required (player/team ID or name)",
+        "away": "required (player/team ID or name)",
+        "time": "required (UTC epoch or YYYYMMDD)"
+      }
+    },
+    "event_history": {
+      "url": "/v1/event/history",
+      "method": "GET",
+      "description": "Histórico de mudanças de odds de um evento",
+      "params": {
+        "event_id": "required",
+        "token": "required"
+      }
+    },
+    "event_stats_trend": {
+      "url": "/v1/event/stats_trend",
+      "method": "GET",
+      "description": "Tendências estatísticas do evento",
+      "params": {
+        "event_id": "required",
+        "token": "required"
+      }
+    },
+    "team_info": {
+      "url": "/v1/team",
+      "method": "GET",
+      "description": "Informações de equipe/jogador",
+      "params": {
+        "team_id": "required",
+        "token": "required"
+      }
+    }
+  },
+  "tennis_markets": {
+    "13_1": "Match Winner 2-Way",
+    "13_2": "Asian Handicap", 
+    "13_3": "Over/Under"
+  },
+  "odds_sources": [
+    "bet365", "10bet", "ladbrokes", "williamhill", "betclic", 
+    "pinnaclesports", "planetwin365", "ysb88", "188bet", "unibet", 
+    "bwin", "betfair", "betfred", "cloudbet", "betsson", "betdaq", 
+    "paddypower", "sbobet", "titanbet", "betathome", "dafabet", 
+    "marathonbet", "betvictor", "intertops", "interwetten", "betway", 
+    "1xbet", "nitrogensports", "betregal", "skybet", "marsbet", 
+    "cashpoint", "macauslot", "mansionbet", "hkjc", "hg", "ggbet"
+  ],
+  "tennis_ranking_types": {
+    "1": "Singles Men",
+    "2": "Doubles Men", 
+    "3": "Singles Women",
+    "4": "Doubles Women"
+  },
+  "data_storage": {
+    "output_dir": "data",
+    "formats": ["json", "csv"],
+    "backup_enabled": true,
+    "max_file_size_mb": 100
+  },
+  "collection_settings": {
+    "collect_inplay": true,
+    "collect_upcoming": true,
+    "collect_ended": true,
+    "collect_odds": true,
+    "collect_rankings": true,
+    "collect_player_info": false,
+    "collect_leagues": true,
+    "collect_event_history": false,
+    "collect_stats_trend": false,
+    "max_pages_per_endpoint": 3,
+    "days_history": 3,
+    "days_future": 5,
+    "update_interval_minutes": 30,
+    "max_events_per_request": 50,
+    "retry_attempts": 2,
+    "retry_delay_seconds": 10,
+    "max_requests_per_session": 2000,
+    "priority_collection": {
+      "inplay_priority": 1,
+      "upcoming_priority": 2, 
+      "odds_priority": 3,
+      "rankings_priority": 4,
+      "ended_priority": 5
+    }
+  }
+}
