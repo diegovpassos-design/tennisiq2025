@@ -658,7 +658,7 @@ class TennisIQBot:
             return 2.00  # Valor padrão seguro
     
     def validar_filtros_odds(self, oportunidade, odds_data):
-        """Valida se a aposta passa nos filtros de odds (1.75 a 2.80)."""
+        """Valida se a aposta passa nos filtros de odds com critérios estratificados."""
         try:
             # Determinar a odd correta baseado no tipo (HOME ou AWAY)
             if oportunidade.get('tipo') == 'HOME':
@@ -673,13 +673,27 @@ class TennisIQBot:
             
             odd_float = float(odd_atual)
             
-            # FILTRO CRÍTICO: Odds entre 1.75 e 2.80 (baseado na análise)
-            if not (1.75 <= odd_float <= 2.80):
-                print(f"❌ Odd {odd_float} fora do range 1.75-2.80 para {oportunidade['jogador']}")
-                return False, odd_float
+            # ABORDAGEM ESTRATIFICADA: Odds por níveis de qualidade
+            ev_atual = oportunidade.get('ev', 0)
             
-            print(f"✅ Odd {odd_float} aprovada para {oportunidade['jogador']}")
-            return True, odd_float
+            # Nível PREMIUM: Odds 1.80-2.50 (sweet spot histórico)
+            if 1.80 <= odd_float <= 2.50:
+                print(f"✅ Odd PREMIUM {odd_float} aprovada para {oportunidade['jogador']}")
+                return True, odd_float
+            
+            # Nível ACEITÁVEL: Odds 1.75-1.79 ou 2.51-2.80 (exige EV alto)
+            elif (1.75 <= odd_float < 1.80 or 2.51 <= odd_float <= 2.80):
+                if ev_atual >= 0.20:  # EV mais rigoroso para odds marginais
+                    print(f"✅ Odd ACEITÁVEL {odd_float} (EV={ev_atual:.3f}) aprovada para {oportunidade['jogador']}")
+                    return True, odd_float
+                else:
+                    print(f"❌ Odd {odd_float} marginal exige EV≥0.20 (atual: {ev_atual:.3f}) para {oportunidade['jogador']}")
+                    return False, odd_float
+            
+            # Fora dos ranges aceitáveis
+            else:
+                print(f"❌ Odd {odd_float} fora dos ranges aceitáveis (1.75-2.80) para {oportunidade['jogador']}")
+                return False, odd_float
             
         except (ValueError, TypeError) as e:
             print(f"❌ Erro ao validar odd para {oportunidade['jogador']}: {e}")
@@ -1701,40 +1715,46 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
     
     def aplicar_filtros_rigidos(self, oportunidade):
         """
-        Aplica filtros rigorosos de produção - SINCRONIZADO COM SELEÇÃO_FINAL
+        Aplica filtros rigorosos de produção - VERSÃO MELHORADA PÓS-ANÁLISE
         """
         try:
-            # EV mínimo ajustado para 0.10 (sincronizado com seleção_final.py)
+            # EV mínimo ENDURECIDO para 0.15 (era 0.10 - muito permissivo)
             ev = oportunidade.get('ev', 0)
-            if ev < 0.10:
-                print(f"❌ Filtro EV: {ev:.3f} < 0.10 (mínimo)")
+            if ev < 0.15:
+                print(f"❌ Filtro EV: {ev:.3f} < 0.15 (mínimo ENDURECIDO)")
                 return False
             
-            # Momentum Score mínimo ajustado para 65% (endurecido após análise de REDs)
+            # Momentum Score mínimo mantido em 65% (adequado)
             momentum = oportunidade.get('momentum', 0)
             if momentum < 65:
-                print(f"❌ Filtro MS: {momentum:.1f}% < 65% (mínimo - ENDURECIDO)")
+                print(f"❌ Filtro MS: {momentum:.1f}% < 65% (mínimo)")
                 return False
             
-            # Win 1st Serve mínimo ajustado para 55% (sincronizado com seleção_final.py)
+            # Win 1st Serve ENDURECIDO para 60% (era 55% - muito baixo)
             win_1st = oportunidade.get('win_1st_serve', 0)
-            if win_1st < 55:
-                print(f"❌ Filtro W1S: {win_1st:.1f}% < 55% (mínimo)")
+            if win_1st < 60:
+                print(f"❌ Filtro W1S: {win_1st:.1f}% < 60% (mínimo ENDURECIDO)")
                 return False
             
-            # Double Faults máximo ajustado para 5 (sincronizado com seleção_final.py)
+            # Double Faults ENDURECIDO para 3 (era 5 - muito permissivo)
             double_faults = oportunidade.get('double_faults', 0)
-            if double_faults > 5:
-                print(f"❌ Filtro DF: {double_faults} > 5 (máximo)")
+            if double_faults > 3:
+                print(f"❌ Filtro DF: {double_faults} > 3 (máximo ENDURECIDO)")
                 return False
             
-            # NOVO: Validação de timing inteligente para tradicional
+            # NOVO: Filtro de consistência - evitar partidas muito voláteis
+            placar = oportunidade.get('placar', '')
+            if self.detectar_volatilidade_extrema(placar):
+                print(f"❌ Filtro Volatilidade: Partida muito instável detectada")
+                return False
+            
+            # NOVO: Validação de timing inteligente MAIS RESTRITIVA
             timing_aprovado = self.validar_timing_inteligente(oportunidade, 'TRADICIONAL')
             if not timing_aprovado:
                 print(f"❌ Filtro Timing: Horário inadequado para estratégia tradicional")
                 return False
             
-            # BLOQUEIOS CONTEXTUAIS
+            # BLOQUEIOS CONTEXTUAIS MANTIDOS
             contexto = self.identificar_contexto_partida(oportunidade)
             
             if '3º set' in contexto:
@@ -1755,6 +1775,74 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         except Exception as e:
             print(f"⚠️ Erro ao aplicar filtros rígidos: {e}")
             return False
+
+    def detectar_volatilidade_extrema(self, placar):
+        """
+        Detecta se a partida está muito volátil/instável para apostar
+        """
+        try:
+            if not placar or '-' not in placar:
+                return False
+            
+            # Analisar o placar para detectar padrões voláteis
+            sets = placar.split(',') if ',' in placar else [placar]
+            
+            for set_score in sets:
+                if '-' in set_score:
+                    games = set_score.strip().split('-')
+                    if len(games) == 2:
+                        try:
+                            g1, g2 = int(games[0]), int(games[1])
+                            
+                            # Detectar tie-breaks (7-6, 6-7) - muito voláteis
+                            if (g1 == 7 and g2 == 6) or (g1 == 6 and g2 == 7):
+                                return True
+                            
+                            # Detectar sets muito apertados (5-4, 4-5, 5-3, 3-5)
+                            diff = abs(g1 - g2)
+                            if diff <= 1 and (g1 >= 4 or g2 >= 4):
+                                return True
+                                
+                        except (ValueError, IndexError):
+                            continue
+            
+            return False
+            
+        except Exception:
+            return False
+
+    def validar_timing_inteligente_melhorado(self, oportunidade, estrategia_tipo, score_mental=0):
+        """
+        Validação de timing MAIS RESTRITIVA baseada na análise de performance
+        """
+        agora = datetime.now()
+        hora_atual = agora.hour
+        
+        # HORÁRIOS DE MAIOR SUCESSO (baseado em análise)
+        horarios_premium = [14, 15, 16, 17, 18, 19, 20]  # 14h às 20h
+        horarios_bons = [10, 11, 12, 13, 21, 22]  # Manhã e noite inicial
+        horarios_ruins = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 23]  # Madrugada/muito cedo/muito tarde
+        
+        if estrategia_tipo == 'TRADICIONAL':
+            # TRADICIONAL: Só aceitar horários premium e bons
+            if hora_atual in horarios_ruins:
+                return False
+            
+            # Durante horários premium, aceitar sempre
+            if hora_atual in horarios_premium:
+                return True
+                
+            # Durante horários bons, ser mais seletivo
+            if hora_atual in horarios_bons:
+                ev = oportunidade.get('ev', 0)
+                return ev >= 0.20  # EV mais alto exigido fora do horário premium
+                
+        elif estrategia_tipo == 'INVERTIDA':
+            # INVERTIDA: Mais flexível, mas com score mental alto
+            if hora_atual in horarios_ruins and score_mental < 400:
+                return False
+                
+        return True
 
     def signal_handler(self, signum, frame):
         """Handler para o sinal Ctrl+C."""
