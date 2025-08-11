@@ -639,9 +639,8 @@ def analisar_ev_partidas():
                 else:
                     filtros_rejeitados.append(f"EV: {dados_jogador['ev']:.3f} ❌ (min {criterios['EV_MINIMO']})")
             
-            # Filtro Momentum Score: Adaptativo
-            ms_max = 85 if is_alta_tensao else 70  # Mais permissivo para estratégia invertida
-            if criterios['MOMENTUM_SCORE_MINIMO'] <= dados_jogador['momentum_score'] <= ms_max:
+            # Filtro Momentum Score: Apenas mínimo
+            if dados_jogador['momentum_score'] >= criterios['MOMENTUM_SCORE_MINIMO']:
                 filtros_aprovados.append(f"MS: {dados_jogador['momentum_score']:.1f}% ✅ ({estrategia_tipo})")
             else:
                 filtros_rejeitados.append(f"MS: {dados_jogador['momentum_score']:.1f}% ❌ (min {criterios['MOMENTUM_SCORE_MINIMO']}% - {estrategia_tipo})")
