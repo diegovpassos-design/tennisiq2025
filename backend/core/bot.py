@@ -524,16 +524,16 @@ class TennisIQBot:
                 if new_status['link_working']:
                     print("✅ Links da Bet365 atualizados com sucesso")
                     # Notificar via Telegram sobre a atualização
-                    self.enviar_mensagem_telegram(
+                    self.enviar_telegram(
                         "🔗 Links da Bet365 foram atualizados automaticamente",
-                        chat_pessoal=True
+                        para_canal=False
                     )
                 else:
                     print("❌ Falha ao atualizar links da Bet365")
                     # Notificar sobre o problema
-                    self.enviar_mensagem_telegram(
+                    self.enviar_telegram(
                         "⚠️ ATENÇÃO: Links da Bet365 podem estar com problema. Verificação manual necessária.",
-                        chat_pessoal=True
+                        para_canal=False
                     )
             
             self.ultima_verificacao_bet365 = agora
