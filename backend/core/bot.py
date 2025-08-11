@@ -32,7 +32,30 @@ if sys.platform == "win32":
         # Se não conseguir configurar, continue sem problemas
         pass
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# Importar logger formatado
+try:
+    from ..utils.logger_formatado import logger_formatado
+    LOGGER_FORMATADO_DISPONIVEL = True
+    print("✅ Logger formatado carregado - Logs organizados ativados")
+except ImportError:
+    # Fallback caso não consiga importar
+    class LoggerFallback:
+        def set_verbosidade(self, nivel): pass
+        def log_inicio_ciclo(self, ciclo): print(f"🔄 Ciclo {ciclo}")
+        def log_coleta_dados(self, total, aprovadas, requests=0): print(f"📡 {total} partidas • {aprovadas} timing OK")
+        def log_partidas_prioritarias(self, partidas): pass
+        def log_analise_filtros(self, resultados): pass
+        def log_oportunidades_encontradas(self, oportunidades): pass
+        def log_resumo_ciclo(self, stats): print(f"📈 Ciclo finalizado")
+        def log_erro(self, msg, detalhes=None): print(f"🚨 {msg}")
+        def log_aviso(self, msg): print(f"⚠️ {msg}")
+        def log_debug(self, msg): pass
+    
+    logger_formatado = LoggerFallback()
+    LOGGER_FORMATADO_DISPONIVEL = False
+    print("⚠️ Logger formatado não disponível - usando fallback")
 
 # Importações condicionais baseadas no contexto de execução
 try:
@@ -662,7 +685,8 @@ class TennisIQBot:
 
     def gerar_sinal_tennisiq(self, oportunidade, odds_data, dados_filtros=None):
         """Gera sinal no formato TennisIQ específico com dados dos filtros."""
-        agora = datetime.now()
+        # Usar horário de Brasília (UTC-3)
+        agora = datetime.now(timezone(timedelta(hours=-3)))
         horario = agora.strftime("%H:%M")
         
         # O jogador da oportunidade é sempre o que tem maior EV
@@ -1125,13 +1149,25 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     if ev_partida == 0:
                         # Calcular EV usando momentum e odds disponíveis
                         momentum = oportunidade.get('momentum', 0)
-                        odd_valor = odds_data.get('jogador1_odd', 0)
+                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
+                        
+                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
+                        try:
+                            odd_valor = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
+                        except (ValueError, TypeError):
+                            odd_valor = 0
+                            
                         if momentum > 0 and odd_valor > 1:
                             try:
                                 probabilidade = momentum / 100
                                 ev_partida = (probabilidade * odd_valor) - 1
+                                print(f"🧮 EV calculado: MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
                             except:
                                 ev_partida = 0
+                                print(f"⚠️ Erro no cálculo EV: MS={momentum}, Odd={odd_valor_raw}")
+                        else:
+                            print(f"⚠️ EV não calculado: MS={momentum}, Odd={odd_valor_raw} (inválida)")
+                            ev_partida = 0
                     
                     # Log partida rejeitada por odds
                     dashboard_logger.log_partida_analisada(
@@ -1204,13 +1240,25 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     if ev_partida == 0:
                         # Calcular EV usando momentum e odds disponíveis
                         momentum = oportunidade.get('momentum', 0)
-                        odd_valor = odds_data.get('jogador1_odd', 0)
+                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
+                        
+                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
+                        try:
+                            odd_valor = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
+                        except (ValueError, TypeError):
+                            odd_valor = 0
+                            
                         if momentum > 0 and odd_valor > 1:
                             try:
                                 probabilidade = momentum / 100
                                 ev_partida = (probabilidade * odd_valor) - 1
+                                print(f"🧮 EV calculado (filtros rígidos): MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
                             except:
                                 ev_partida = 0
+                                print(f"⚠️ Erro no cálculo EV (filtros rígidos): MS={momentum}, Odd={odd_valor_raw}")
+                        else:
+                            print(f"⚠️ EV não calculado (filtros rígidos): MS={momentum}, Odd={odd_valor_raw} (inválida)")
+                            ev_partida = 0
                     
                     # Log partida rejeitada por filtros rígidos
                     dashboard_logger.log_partida_analisada(
@@ -1267,12 +1315,25 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     if ev_partida == 0:
                         # Calcular EV usando momentum e odds disponíveis
                         momentum = oportunidade.get('momentum', 0)
-                        if momentum > 0 and odd_valor > 1:
+                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
+                        
+                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
+                        try:
+                            odd_valor_calc = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
+                        except (ValueError, TypeError):
+                            odd_valor_calc = 0
+                            
+                        if momentum > 0 and odd_valor_calc > 1:
                             try:
                                 probabilidade = momentum / 100
-                                ev_partida = (probabilidade * odd_valor) - 1
+                                ev_partida = (probabilidade * odd_valor_calc) - 1
+                                print(f"🧮 EV calculado (sinal gerado): MS={momentum}%, Odd={odd_valor_calc} → EV={ev_partida:.3f}")
                             except:
                                 ev_partida = 0
+                                print(f"⚠️ Erro no cálculo EV (sinal gerado): MS={momentum}, Odd={odd_valor_raw}")
+                        else:
+                            print(f"⚠️ EV não calculado (sinal gerado): MS={momentum}, Odd={odd_valor_raw} (inválida)")
+                            ev_partida = 0
                     
                     # Log sinal tradicional gerado
                     dashboard_logger.log_sinal_gerado(
@@ -1370,7 +1431,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         """
         Validação de timing adaptada por tipo de estratégia
         """
-        agora = datetime.now()
+        # Usar horário de Brasília (UTC-3)
+        agora = datetime.now(timezone(timedelta(hours=-3)))
         hora_atual = agora.hour
         
         # ESTRATÉGIA INVERTIDA: Timing mais flexível
@@ -1492,8 +1554,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             # Calcular odd mínima
             odd_minima = self.calcular_odd_minima(odd_alvo)
             
-            # Usar horário atual
-            agora = datetime.now()
+            # Usar horário de Brasília (UTC-3)
+            agora = datetime.now(timezone(timedelta(hours=-3)))
             horario = agora.strftime("%H:%M")
             
             # Gerar link direto da Bet365 (se disponível)
@@ -1501,7 +1563,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             bet365_link = bet365_manager.generate_link(event_id) if event_id else "Link não disponível"
             
             # Montar sinal no formato padrão TennisIQ
-            mensagem = f"""🎾 TennisIQ - Sinal
+            mensagem = f"""🎾 TennisIQ - Sinal - Invertida 🔁
 
 {oponente} vs {jogador_alvo}
 ⏰ {horario}
@@ -1510,7 +1572,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
 � Odd: {odd_alvo}
 ⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
 
-🔗 Link direto: {bet365_link}
+🔗 Link direto: https://www.bet365.bet.br/?_h=LKUUnzn5idsD_NCCi9iyvQ%3D%3D&btsffd=1#/IP/EV10459378C13
 
 #TennisIQ"""
             
@@ -1620,6 +1682,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         print("🎾 TennisIQ Bot - Iniciando Monitoramento 24h...")
         print("=" * 60)
         
+        # Configurar verbosidade do logger (MINIMAL, NORMAL, DEBUG)
+        logger_formatado.set_verbosidade("NORMAL")  # Mude para MINIMAL se quiser menos info
+        
         # Enviar notificação de ativação
         self.notificar_ativacao()
         
@@ -1645,14 +1710,12 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 
                 # Resetar contador de requests a cada hora
                 if agora.hour != self.hora_atual:
-                    print(f"🔄 Nova hora detectada - Resetando contador de requests API")
-                    print(f"📊 Requests na hora anterior: {self.requests_contador}")
+                    logger_formatado.log_aviso(f"Nova hora detectada - Resetando contador API (anterior: {self.requests_contador})")
                     self.requests_contador = 0
                     self.hora_atual = agora.hour
                 
-                print(f"\n🔄 Ciclo {contador_ciclos} - {data_str} {agora_str}")
-                print("🔍 Analisando oportunidades...")
-                print(f"📡 Requests utilizados nesta hora: {self.requests_contador}/3600")
+                # === INÍCIO DO CICLO COM LOGGER FORMATADO ===
+                logger_formatado.log_inicio_ciclo(contador_ciclos)
                 
                 # Atualizar status do bot no dashboard
                 dashboard_logger.atualizar_status_bot(
@@ -1664,63 +1727,99 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # Reset contador de requests do ciclo
                 requests_inicio_ciclo = self.requests_contador
                 
+                # Limpar dados das partidas para novo ciclo
+                try:
+                    from ..data.opportunities.seleção_final import limpar_dados_partidas
+                    limpar_dados_partidas()
+                except ImportError:
+                    pass
+                
                 # Executar análise de oportunidades
                 oportunidades = analisar_ev_partidas()
                 
-                # Se encontrou oportunidades, processar sinais
+                # Buscar dados reais das partidas para o logger
+                try:
+                    from ..data.opportunities.seleção_final import get_dados_partidas_para_logger
+                    dados_partidas = get_dados_partidas_para_logger()
+                    total_partidas_real = dados_partidas['total_partidas']
+                    aprovadas_timing_real = dados_partidas['aprovadas_timing']
+                    partidas_timing = dados_partidas['partidas_timing']
+                except ImportError:
+                    # Fallback se não conseguir importar
+                    total_partidas_real = 0
+                    aprovadas_timing_real = 0
+                    partidas_timing = []
+                
+                # Log da coleta de dados
+                requests_usados = self.requests_contador - requests_inicio_ciclo
+                logger_formatado.log_coleta_dados(
+                    total_partidas=total_partidas_real,
+                    aprovadas_timing=aprovadas_timing_real,
+                    requests_usados=requests_usados
+                )
+                
+                # Log das partidas prioritárias
+                if partidas_timing:
+                    logger_formatado.log_partidas_prioritarias(partidas_timing)
+                
+                # Log das oportunidades encontradas
                 if oportunidades:
                     total_oportunidades = len(oportunidades)
                     contador_oportunidades_total += total_oportunidades
                     
-                    print(f"🎯 {total_oportunidades} oportunidade(s) encontrada(s)!")
+                    # Converter oportunidades para formato do logger
+                    oportunidades_formatadas = []
+                    for op in oportunidades:
+                        oportunidades_formatadas.append({
+                            'jogador': op.get('jogador', 'N/A'),
+                            'odd': op.get('odd', 0),
+                            'estrategia': op.get('estrategia', 'RIGOROSA'),
+                            'confianca': op.get('confianca', 85)
+                        })
+                    
+                    logger_formatado.log_oportunidades_encontradas(oportunidades_formatadas)
                     self.notificar_oportunidade(oportunidades)
                 else:
-                    print("⏳ Nenhuma oportunidade encontrada neste ciclo")
+                    logger_formatado.log_oportunidades_encontradas([])
                 
                 # Verificar resultados das apostas a cada 2 ciclos (~1.5 minutos) - AUTOMÁTICO E RÁPIDO
                 if contador_ciclos % 2 == 0:  # Mudado de 3 para 2 ciclos
-                    print("\n🔍 Verificando resultados automaticamente (somente por ID)...")
+                    logger_formatado.log_debug("Verificando resultados automaticamente (somente por ID)...")
                     self.verificar_resultados_automatico()
                 
                 # Verificar se é hora de enviar relatórios (a cada ciclo)
                 self.verificar_horario_relatorios()
                 
-                # Gerar log de oportunidades próximas
-                try:
-                    # Buscar dados das partidas analisadas para o log
-                    # (simulação - em produção viria da análise real)
-                    partidas_analisadas = []  # Aqui viriam os dados reais das partidas
-                    log_proximidade = self.gerar_log_oportunidades_proximas(partidas_analisadas)
-                    print(log_proximidade)
-                except Exception as e:
-                    print(f"⚠️ Erro ao gerar log de proximidade: {e}")
+                # === RESUMO DO CICLO ===
+                stats_ciclo = {
+                    'partidas_analisadas': total_partidas_real,
+                    'timing_aprovadas': aprovadas_timing_real,
+                    'taxa_timing': (aprovadas_timing_real / total_partidas_real * 100) if total_partidas_real > 0 else 0,
+                    'oportunidades_encontradas': len(oportunidades) if oportunidades else 0,
+                    'taxa_conversao': (len(oportunidades) / aprovadas_timing_real * 100) if aprovadas_timing_real > 0 else 0,
+                    'requests_usados': requests_usados,
+                    'proximo_ciclo': 45,
+                    'sistema_ativo': True
+                }
                 
-                # Estatísticas do ciclo
-                sinais_unicos = len(self.sinais_enviados)
-                requests_neste_ciclo = self.requests_contador - requests_inicio_ciclo
-                requests_por_hora = self.requests_contador * (3600 / ((contador_ciclos * 5 * 60) if contador_ciclos > 0 else 1))
-                
-                print(f"📊 ESTATÍSTICAS DO CICLO:")
-                print(f"   • Oportunidades detectadas: {contador_oportunidades_total}")
-                print(f"   • Sinais únicos enviados: {sinais_unicos}")
-                print(f"   • Requests neste ciclo: {requests_neste_ciclo}")
-                print(f"   • Requests por hora (estimado): {requests_por_hora:.0f}/3600")
-                print(f"   • Total requests desde início: {self.requests_contador}")
+                logger_formatado.log_resumo_ciclo(stats_ciclo)
                 
                 # Rate limiting inteligente baseado no limite real - OTIMIZADO
+                requests_por_hora = self.requests_contador * (3600 / ((contador_ciclos * 5 * 60) if contador_ciclos > 0 else 1))
+                
                 if requests_por_hora > 3000:  # 83% do limite
-                    print("🔴 CRÍTICO: Muito próximo do limite da API!")
+                    logger_formatado.log_aviso("CRÍTICO: Muito próximo do limite da API!")
                     tempo_espera = 90  # Reduzido de 120 para 90 segundos
                 elif requests_por_hora > 2500:  # 69% do limite
-                    print("🟡 ATENÇÃO: Aproximando do limite da API")
+                    logger_formatado.log_aviso("ATENÇÃO: Aproximando do limite da API")
                     tempo_espera = 60  # Reduzido de 90 para 60 segundos
                 elif requests_por_hora > 2000:  # 56% do limite
-                    print("🟠 MODERADO: Monitorando uso da API")
+                    logger_formatado.log_debug("MODERADO: Monitorando uso da API")
                     tempo_espera = 50  # Reduzido de 75 para 50 segundos
                 else:
                     tempo_espera = 45  # Reduzido de 60 para 45 segundos - MAIS RÁPIDO!
                 
-                print(f"⏰ Próxima verificação em {tempo_espera} segundo(s)...")
+                logger_formatado.log_debug(f"Próxima verificação em {tempo_espera}s...")
                 
                 for i in range(tempo_espera):
                     if not self.running:
@@ -1731,8 +1830,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # Ctrl+C já é tratado pelo signal_handler
                 break
             except Exception as e:
-                print(f"⚠️ Erro durante monitoramento: {e}")
-                print("🔄 Tentando novamente em 30 segundos...")
+                logger_formatado.log_erro(f"Erro durante monitoramento: {e}")
+                logger_formatado.log_aviso("Tentando novamente em 15 segundos...")
                 time.sleep(15)  # Reduzido de 30 para 15 segundos para recuperação mais rápida
 
 def main():

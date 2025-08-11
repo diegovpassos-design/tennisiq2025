@@ -26,8 +26,40 @@ except ImportError as e:
     DASHBOARD_DISPONIVEL = False
     print(f"❌ Erro ao importar dashboard logger: {e}")
 
+# Importar logger formatado
+try:
+    from ...utils.logger_formatado import logger_formatado
+    LOGGER_FORMATADO_DISPONIVEL = True
+except ImportError:
+    try:
+        # Fallback para import absoluto
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+        from backend.utils.logger_formatado import logger_formatado
+        LOGGER_FORMATADO_DISPONIVEL = True
+    except ImportError:
+        LOGGER_FORMATADO_DISPONIVEL = False
+
+# Variáveis globais para dados das partidas (para integração com logger)
+partidas_timing_dados = []
+partidas_analisadas_dados = []
+
+def get_dados_partidas_para_logger():
+    """Retorna dados das partidas para o logger formatado"""
+    return {
+        'total_partidas': len(partidas_analisadas_dados),
+        'aprovadas_timing': len(partidas_timing_dados),
+        'partidas_timing': partidas_timing_dados,
+        'partidas_analisadas': partidas_analisadas_dados
+    }
+
+def limpar_dados_partidas():
+    """Limpa os dados das partidas para novo ciclo"""
+    global partidas_timing_dados, partidas_analisadas_dados
+    partidas_timing_dados = []
+    partidas_analisadas_dados = []
+
 def buscar_odds_evento(event_id, api_key, base_url):
-    """Busca as odds de um evento específico (baseado em ev.py)."""
+    """Busca as odds de um evento específico com múltiplas estratégias."""
     url = f"{base_url}/v3/event/odds"
     params = {
         'event_id': event_id,
@@ -35,7 +67,7 @@ def buscar_odds_evento(event_id, api_key, base_url):
     }
     
     try:
-        response = requests.get(url, params=params, timeout=15)  # Aumentar timeout
+        response = requests.get(url, params=params, timeout=15)
         response.raise_for_status()
         data = response.json()
         
@@ -45,15 +77,53 @@ def buscar_odds_evento(event_id, api_key, base_url):
             if 'odds' in results and results['odds']:
                 odds_data = results['odds']
                 
+                # Estratégia 1: Tentar 13_1 (main market)
                 if '13_1' in odds_data and odds_data['13_1']:
                     latest_odds = odds_data['13_1'][0]
                     
                     if 'home_od' in latest_odds and 'away_od' in latest_odds:
-                        return {
-                            'jogador1_odd': latest_odds.get('home_od', 'N/A'),
-                            'jogador2_odd': latest_odds.get('away_od', 'N/A')
-                        }
+                        home_odd = latest_odds.get('home_od', '-')
+                        away_odd = latest_odds.get('away_od', '-')
+                        
+                        # Verificar se são valores válidos
+                        if home_odd != '-' and away_odd != '-':
+                            try:
+                                float(home_odd)
+                                float(away_odd)
+                                print(f"✅ Odds encontradas (13_1): Casa={home_odd}, Visitante={away_odd}")
+                                return {
+                                    'jogador1_odd': home_odd,
+                                    'jogador2_odd': away_odd
+                                }
+                            except ValueError:
+                                print(f"⚠️ Odds inválidas (13_1): Casa={home_odd}, Visitante={away_odd}")
+                
+                # Estratégia 2: Tentar outros mercados
+                for market_id in ['1', '18', '2', '3']:
+                    if market_id in odds_data and odds_data[market_id]:
+                        try:
+                            market_odds = odds_data[market_id][0]
+                            home_odd = market_odds.get('home_od', '-')
+                            away_odd = market_odds.get('away_od', '-')
+                            
+                            if home_odd != '-' and away_odd != '-':
+                                float(home_odd)
+                                float(away_odd)
+                                print(f"✅ Odds encontradas (market {market_id}): Casa={home_odd}, Visitante={away_odd}")
+                                return {
+                                    'jogador1_odd': home_odd,
+                                    'jogador2_odd': away_odd
+                                }
+                        except (ValueError, IndexError, KeyError):
+                            continue
+                
+                print(f"⚠️ Nenhuma odd válida encontrada para evento {event_id}")
         
+        print(f"⚠️ Estrutura de odds não encontrada para evento {event_id}")
+        return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+        
+    except Exception as e:
+        print(f"❌ Erro ao buscar odds do evento {event_id}: {e}")
         return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
         
     except Exception as e:
@@ -504,20 +574,63 @@ def analisar_ev_partidas():
                     # Calcular EV principal da partida (usando momentum_score se disponível)
                     ev_principal = 0.0
                     try:
-                        # Pegar momentum dos stats_reais se disponível
-                        stats_j1 = stats_reais.get('stats_jogador1', {})
-                        stats_j2 = stats_reais.get('stats_jogador2', {})
+                        # *** CORREÇÃO: Usar sistema de coleta interno para calcular EV correto ***
                         
-                        momentum_j1 = stats_j1.get('momentum_score', 0)
-                        momentum_j2 = stats_j2.get('momentum_score', 0)
+                        # Buscar stats calculados da partida usando função disponível
+                        stats_info = buscar_stats_detalhadas(partida['id'], api_key, base_url)
                         
-                        if momentum_j1 > 0:
-                            ev_j1 = calcular_ev(momentum_j1, partida.get('odds_casa', 2.0))
-                            ev_principal = max(ev_principal, ev_j1)
+                        # Buscar odds da partida usando função já disponível
+                        odds_info = buscar_odds_evento(partida['id'], api_key, base_url)
                         
-                        if momentum_j2 > 0:
-                            ev_j2 = calcular_ev(momentum_j2, partida.get('odds_visitante', 2.0))
-                            ev_principal = max(ev_principal, ev_j2)
+                        # Debug: Mostrar dados coletados
+                        print(f"🔍 Stats coletados: MS1={stats_info.get('jogador1_ms', '0')}, MS2={stats_info.get('jogador2_ms', '0')}")
+                        print(f"🔍 Odds coletados: Odd1={odds_info.get('jogador1_odd', 'N/A')}, Odd2={odds_info.get('jogador2_odd', 'N/A')}")
+                        
+                        # Calcular EV para jogador HOME (casa)
+                        odd1 = odds_info.get('jogador1_odd', 'N/A')
+                        ms1 = stats_info.get('jogador1_ms', '50')
+                        
+                        if (odd1 not in ['N/A', '-', None, 'N/A'] and 
+                            ms1 not in ['50', '0', None] and
+                            str(ms1) != '50'):
+                            try:
+                                odd_casa = float(odd1)
+                                ms_casa = float(ms1)
+                                
+                                # Verificar se valores são válidos
+                                if odd_casa > 1.0 and 0 < ms_casa <= 100 and ms_casa != 50:
+                                    ev_casa = calcular_ev(ms_casa, odd_casa)
+                                    ev_principal = max(ev_principal, ev_casa)
+                                    print(f"📊 EV Jogador Casa: MS={ms_casa}%, Odd={odd_casa}, EV={ev_casa:.3f}")
+                                else:
+                                    print(f"⚠️ Valores inválidos - Casa: Odd={odd_casa}, MS={ms_casa}")
+                            except (ValueError, TypeError) as e:
+                                print(f"⚠️ Erro ao converter valores casa: Odd={odd1}, MS={ms1} - {e}")
+                        else:
+                            print(f"⚠️ Dados casa insuficientes: Odd={odd1}, MS={ms1}")
+                        
+                        # Calcular EV para jogador AWAY (visitante)
+                        odd2 = odds_info.get('jogador2_odd', 'N/A')
+                        ms2 = stats_info.get('jogador2_ms', '50')
+                        
+                        if (odd2 not in ['N/A', '-', None, 'N/A'] and 
+                            ms2 not in ['50', '0', None] and
+                            str(ms2) != '50'):
+                            try:
+                                odd_visitante = float(odd2)
+                                ms_visitante = float(ms2)
+                                
+                                # Verificar se valores são válidos
+                                if odd_visitante > 1.0 and 0 < ms_visitante <= 100 and ms_visitante != 50:
+                                    ev_visitante = calcular_ev(ms_visitante, odd_visitante)
+                                    ev_principal = max(ev_principal, ev_visitante)
+                                    print(f"📊 EV Jogador Visitante: MS={ms_visitante}%, Odd={odd_visitante}, EV={ev_visitante:.3f}")
+                                else:
+                                    print(f"⚠️ Valores inválidos - Visitante: Odd={odd_visitante}, MS={ms_visitante}")
+                            except (ValueError, TypeError) as e:
+                                print(f"⚠️ Erro ao converter valores visitante: Odd={odd2}, MS={ms2} - {e}")
+                        else:
+                            print(f"⚠️ Dados visitante insuficientes: Odd={odd2}, MS={ms2}")
                             
                         print(f"📊 EV Principal calculado: {ev_principal:.3f}")
                             
