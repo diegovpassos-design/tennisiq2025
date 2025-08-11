@@ -1,0 +1,7 @@
+requests==2.31.0
+schedule==1.2.0
+pytz==2023.3
+flask==2.3.3
+sqlite3==0.0.0
+psycopg2-binary==2.9.7
+python-dotenv==1.0.0

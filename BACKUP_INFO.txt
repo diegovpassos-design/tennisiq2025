@@ -1,0 +1,45 @@
+﻿📦 BACKUP DO PROJETO TENNISIQ
+=====================================
+
+📅 Data do Backup: 05/08/2025 19:31:16
+📁 Local do Backup: C:\Users\diego\Documents\TennisQ_Backup_2025-08-05_19-30-16
+💻 Sistema: Windows 10.0.19045
+
+🎯 VERSÃO DO SISTEMA:
+• Bot TennisIQ com sistema automático de links Bet365
+• Gerenciador robusto de parâmetros _h
+• Verificação automática por ID
+• Notificações limpas sem dados técnicos
+• Monitoramento 24/7 integrado
+
+🔧 PRINCIPAIS MÓDULOS:
+• backend/core/bot.py - Bot principal
+• backend/services/bet365_link_manager.py - Sistema automático de links
+• backend/data/results/resultados.py - Verificação por ID
+• teste_bet365_manager.py - Interface de gerenciamento manual
+
+📊 FUNCIONALIDADES IMPLEMENTADAS:
+✅ Sistema automático de links Bet365
+✅ Verificação de resultados por ID
+✅ Mensagens limpas sem dados técnicos
+✅ Monitoramento proativo 24/7
+✅ Notificações via Telegram
+✅ Dashboard web integrado
+
+🚀 PARA RESTAURAR:
+1. Copie a pasta para o local desejado
+2. Execute: python run_bot.py
+3. Configure tokens no config/config.json se necessário
+
+💡 COMANDOS ÚTEIS:
+• python run_bot.py - Iniciar bot
+• python teste_bet365_manager.py manual - Gerenciar links
+• python teste_bet365_manager.py - Testar sistema
+
+📱 TELEGRAM:
+• Sinais automáticos com links diretos
+• Resultados GREEN/RED/VOID
+• Relatórios diários e mensais
+• Notificações de sistema
+
+🎾 TennisIQ - Sistema Completo de Apostas Automático
