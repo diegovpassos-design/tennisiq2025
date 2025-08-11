@@ -43,11 +43,13 @@ class Bet365LinkManager:
                     config = json.load(f)
                     self.current_h_param = config.get('h_param')
                     self.last_update = config.get('last_update')
-                    print(f"📂 Configuração carregada: _h = {self.current_h_param[:20]}..." if self.current_h_param else "📂 Nenhuma configuração encontrada")
+                    # Configuração carregada: silencioso
             else:
-                print("📂 Arquivo de configuração não encontrado, será criado")
+                # Arquivo de configuração não encontrado: silencioso
+                pass
         except Exception as e:
-            print(f"⚠️ Erro ao carregar configuração: {e}")
+            # Erro ao carregar configuração: silencioso
+            pass
     
     def save_config(self):
         """Salva configuração do parâmetro _h"""
@@ -61,9 +63,10 @@ class Bet365LinkManager:
             
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
-                print(f"💾 Configuração salva: _h atualizado")
+                # Configuração salva: silencioso
         except Exception as e:
-            print(f"❌ Erro ao salvar configuração: {e}")
+            # Erro ao salvar configuração: silencioso
+            pass
     
     def test_link(self, test_url=None):
         """Testa se um link da Bet365 está funcionando"""
@@ -87,23 +90,23 @@ class Bet365LinkManager:
                 has_error = any(indicator in content for indicator in error_indicators)
                 
                 if has_success and not has_error:
-                    print(f"✅ Link testado com sucesso: {response.status_code}")
+                    # Link testado com sucesso: silencioso
                     return True
                 else:
-                    print(f"⚠️ Link pode estar com problema - conteúdo suspeito")
+                    # Link pode estar com problema: silencioso
                     return False
             else:
-                print(f"❌ Link falhou: Status {response.status_code}")
+                # Link falhou: silencioso
                 return False
                 
         except Exception as e:
-            print(f"❌ Erro ao testar link: {e}")
+            # Erro ao testar link: silencioso
             return False
     
     def extract_h_param_from_page(self):
         """Extrai o parâmetro _h atual da página principal da Bet365"""
         try:
-            print("🔍 Buscando parâmetro _h atual na Bet365...")
+            # Buscando parâmetro _h atual: silencioso
             
             # Lista de parâmetros _h conhecidos para testar (fallback)
             known_params = [
@@ -149,23 +152,23 @@ class Bet365LinkManager:
                         print(f"🔍 Tentando próxima página...")
                     
                 except Exception as e:
-                    print(f"⚠️ Erro ao acessar {page_url}: {e}")
+                    # Erro ao acessar página: silencioso
                     continue
             
             # Se não conseguiu extrair, testar parâmetros conhecidos
-            print("🔄 Testando parâmetros conhecidos...")
+            # Testando parâmetros conhecidos: silencioso
             for param in known_params:
                 test_url = f"{self.base_url}/?_h={param}&btsffd=1#/IP/B13"
-                print(f"🧪 Testando: {param[:20]}...")
+                # Testando parâmetro: silencioso
                 if self.test_link(test_url):
-                    print(f"✅ Parâmetro conhecido funciona: {param[:20]}...")
+                    # Parâmetro conhecido funciona: silencioso
                     return param
             
-            print("❌ Não foi possível encontrar parâmetro _h funcional")
+            # Não foi possível encontrar parâmetro funcional: silencioso
             return None
             
         except Exception as e:
-            print(f"❌ Erro na extração do parâmetro _h: {e}")
+            # Erro na extração: silencioso
             return None
     
     def update_h_param(self, force=False):
@@ -187,12 +190,12 @@ class Bet365LinkManager:
         # Testar link atual primeiro
         if self.current_h_param and not force:
             if self.test_link():
-                print("✅ Link atual ainda funciona")
+                # Link atual ainda funciona: silencioso
                 self.last_update = now.isoformat()
                 self.save_config()
                 return self.current_h_param
         
-        print("🔄 Atualizando parâmetro _h...")
+        # Atualizando parâmetro: silencioso
         
         # Tentar extrair novo parâmetro
         for attempt in range(self.max_retries):
@@ -202,7 +205,7 @@ class Bet365LinkManager:
                 # Testar novo parâmetro
                 test_url = f"{self.base_url}/?_h={new_h_param}&btsffd=1#/IP/B13"
                 if self.test_link(test_url):
-                    print(f"✅ Novo parâmetro _h validado: {new_h_param[:20]}...")
+                    # Novo parâmetro validado: silencioso
                     
                     # Salvar histórico
                     if not hasattr(self, 'update_history'):
@@ -224,16 +227,17 @@ class Bet365LinkManager:
                     
                     return new_h_param
                 else:
-                    print(f"❌ Novo parâmetro não funcionou na tentativa {attempt + 1}")
+                    # Novo parâmetro não funcionou: silencioso
+                    pass
             
             time.sleep(2)  # Aguardar antes da próxima tentativa
         
-        print("❌ Falha ao atualizar parâmetro _h automaticamente")
+        # Falha ao atualizar parâmetro automaticamente: silencioso
         return self.current_h_param
     
     def set_h_param_manual(self, h_param):
         """Define parâmetro _h manualmente"""
-        print(f"🔧 Definindo parâmetro _h manualmente: {h_param[:20]}...")
+        # Definindo parâmetro manualmente: silencioso
         
         # Testar parâmetro fornecido
         test_url = f"{self.base_url}/?_h={h_param}&btsffd=1#/IP/B13"
@@ -251,17 +255,17 @@ class Bet365LinkManager:
             self.current_h_param = h_param
             self.last_update = datetime.now().isoformat()
             self.save_config()
-            print("✅ Parâmetro _h definido manualmente com sucesso")
+            # Parâmetro definido manualmente com sucesso: silencioso
             return True
         else:
-            print("❌ Parâmetro _h fornecido não está funcionando")
+            # Parâmetro fornecido não está funcionando: silencioso
             return False
     
     def generate_link(self, event_id=None):
         """Gera link da Bet365 com parâmetro _h atualizado"""
         # Garantir que temos parâmetro válido
         if not self.current_h_param:
-            print("⚠️ Parâmetro _h não encontrado, tentando capturar...")
+            # Parâmetro não encontrado, tentando capturar: silencioso
             self.update_h_param(force=True)
         
         # Verificar se link ainda funciona (teste rápido a cada hora)
@@ -274,15 +278,15 @@ class Bet365LinkManager:
                     
                     # Testar link a cada hora
                     if time_diff > 3600:
-                        print("🔄 Verificando validade do link...")
+                        # Verificando validade do link: silencioso
                         if not self.test_link():
-                            print("❌ Link expirado, atualizando...")
+                            # Link expirado, atualizando: silencioso
                             self.update_h_param(force=True)
                 except:
                     pass
         
         if not self.current_h_param:
-            print("❌ Não foi possível obter parâmetro _h válido")
+            # Não foi possível obter parâmetro válido: silencioso
             return f"{self.base_url}/#/IP/B13"  # Link genérico
         
         # Gerar link específico ou genérico

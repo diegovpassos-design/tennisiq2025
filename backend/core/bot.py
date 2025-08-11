@@ -479,27 +479,31 @@ class TennisIQBot:
     def inicializar_bet365_manager(self):
         """Inicializa o gerenciador de links da Bet365 com parâmetro _h atual."""
         try:
-            print("🔗 Inicializando Bet365 Link Manager...")
+            # Inicializando Bet365 Link Manager: silencioso
             
             # Definir parâmetro manual se disponível
             h_param_manual = "LKUUnzn5idsD_NCCi9iyvQ%3D%3D"  # Último valor conhecido
             
             # Tentar definir parâmetro manual primeiro
             if bet365_manager.set_h_param_manual(h_param_manual):
-                print("✅ Bet365 Link Manager inicializado com parâmetro manual")
+                # Bet365 Link Manager inicializado: silencioso
+                pass
             else:
-                print("⚠️ Parâmetro manual falhou, tentando captura automática...")
+                # Parâmetro manual falhou, tentando captura automática: silencioso
                 bet365_manager.update_h_param(force=True)
             
             # Verificar status
             status = bet365_manager.get_status()
             if status['h_param_available']:
-                print(f"✅ Bet365 links prontos: {status.get('h_param_preview', 'N/A')}")
+                # Bet365 links prontos: silencioso
+                pass
             else:
-                print("⚠️ Bet365 links podem não funcionar corretamente")
+                # Bet365 links podem não funcionar: silencioso
+                pass
                 
         except Exception as e:
-            print(f"❌ Erro ao inicializar Bet365 Link Manager: {e}")
+            # Erro ao inicializar Bet365 Link Manager: silencioso
+            pass
     
     def verificar_links_bet365(self):
         """Verifica proativamente se os links da Bet365 estão funcionando."""
@@ -512,24 +516,24 @@ class TennisIQBot:
             if agora - self.ultima_verificacao_bet365 < 7200:  # 2 horas
                 return
             
-            print("🔍 Verificando links da Bet365...")
+            # Verificando links da Bet365: silencioso
             status = bet365_manager.get_status()
             
             if not status['link_working']:
-                print("⚠️ Links da Bet365 não estão funcionando, tentando atualizar...")
+                # Links da Bet365 não estão funcionando: silencioso
                 bet365_manager.update_h_param(force=True)
                 
                 # Verificar novamente após atualização
                 new_status = bet365_manager.get_status()
                 if new_status['link_working']:
-                    print("✅ Links da Bet365 atualizados com sucesso")
+                    # Links da Bet365 atualizados com sucesso: silencioso
                     # Notificar via Telegram sobre a atualização
                     self.enviar_telegram(
                         "🔗 Links da Bet365 foram atualizados automaticamente",
                         para_canal=False
                     )
                 else:
-                    print("❌ Falha ao atualizar links da Bet365")
+                    # Falha ao atualizar links da Bet365: silencioso
                     # Notificar sobre o problema
                     self.enviar_telegram(
                         "⚠️ ATENÇÃO: Links da Bet365 podem estar com problema. Verificação manual necessária.",
@@ -539,7 +543,8 @@ class TennisIQBot:
             self.ultima_verificacao_bet365 = agora
             
         except Exception as e:
-            print(f"❌ Erro na verificação dos links da Bet365: {e}")
+            # Erro na verificação dos links da Bet365: silencioso
+            pass
     
     def buscar_odds_evento(self, event_id):
         """Busca as odds de um evento específico usando a mesma estrutura do partidas.py."""
