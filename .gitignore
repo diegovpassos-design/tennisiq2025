@@ -135,6 +135,11 @@ storage/exports/
 *.tmp
 *.temp
 
+# Arquivos de status dinâmicos (não rastrear mudanças de runtime)
+storage/database/bot_status.json
+storage/database/partidas_analisadas.json
+storage/database/dashboard_data.db
+
 # Configurações sensíveis (manter template)
 config/config.json
 
