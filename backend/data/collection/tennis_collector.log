@@ -1,0 +1,73 @@
+2025-08-03 06:03:35,856 - __main__ - INFO - Iniciando coleta completa de dados...
+2025-08-03 06:03:35,856 - __main__ - INFO - Coletando eventos em andamento...
+2025-08-03 06:03:35,856 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/inplay
+2025-08-03 06:03:37,330 - __main__ - INFO - Coletados 35 eventos em andamento
+2025-08-03 06:03:37,330 - __main__ - INFO - Coletando eventos futuros (7 dias)...
+2025-08-03 06:03:37,330 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:38,596 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:39,919 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:42,114 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:43,392 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:44,596 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:45,885 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:47,093 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:48,321 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:49,687 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:50,940 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:52,138 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:53,402 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:54,627 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:03:55,820 - __main__ - INFO - Coletados 289 eventos futuros
+2025-08-03 06:03:55,820 - __main__ - INFO - Coletando eventos finalizados (7 dias)...
+2025-08-03 06:03:55,820 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:03:57,145 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:03:58,340 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:03:59,692 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:00,984 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:02,446 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:03,877 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:05,371 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:07,011 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:10,724 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:12,455 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:15,914 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:04:17,322 - __main__ - INFO - Fazendo requisição para: https://api.b365api.com/v3/events/ended
+2025-08-03 06:08:13,150 - __main__ - INFO - Iniciando coleta completa de dados...
+2025-08-03 06:08:13,150 - __main__ - INFO - Coletando eventos em andamento...
+2025-08-03 06:08:13,151 - __main__ - INFO - Fazendo requisição 1: https://api.b365api.com/v3/events/inplay
+2025-08-03 06:08:15,196 - __main__ - INFO - Coletados 37 eventos em andamento
+2025-08-03 06:08:15,196 - __main__ - INFO - Coletando eventos futuros (5 dias, max 3 páginas)...
+2025-08-03 06:08:15,196 - __main__ - INFO - Fazendo requisição 2: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:16,935 - __main__ - INFO - Fazendo requisição 3: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:18,738 - __main__ - INFO - Fazendo requisição 4: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:20,537 - __main__ - INFO - Fazendo requisição 5: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:22,698 - __main__ - INFO - Fazendo requisição 6: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:24,409 - __main__ - INFO - Fazendo requisição 7: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:26,105 - __main__ - INFO - Fazendo requisição 8: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:28,097 - __main__ - INFO - Fazendo requisição 9: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:29,833 - __main__ - INFO - Fazendo requisição 10: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:31,587 - __main__ - INFO - Fazendo requisição 11: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:08:33,292 - __main__ - INFO - Coletados 256 eventos futuros
+2025-08-03 06:08:33,292 - __main__ - INFO - Coletando eventos finalizados (3 dias, max 3 páginas)...
+2025-08-03 06:08:33,292 - __main__ - INFO - Fazendo requisição 12: https://api.b365api.com/v3/events/ended
+2025-08-03 06:08:43,376 - __main__ - INFO - Fazendo requisição 13: https://api.b365api.com/v3/events/ended
+2025-08-03 06:25:28,990 - tennis_collector - INFO - Coletando eventos em andamento...
+2025-08-03 06:25:28,990 - tennis_collector - INFO - Fazendo requisição 1: https://api.b365api.com/v3/events/inplay
+2025-08-03 06:25:30,958 - tennis_collector - INFO - Coletados 38 eventos em andamento
+2025-08-03 06:25:32,459 - tennis_collector - INFO - Coletando eventos futuros (5 dias, max 3 páginas)...
+2025-08-03 06:25:32,459 - tennis_collector - INFO - Fazendo requisição 2: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:34,213 - tennis_collector - INFO - Fazendo requisição 3: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:36,081 - tennis_collector - INFO - Fazendo requisição 4: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:37,911 - tennis_collector - INFO - Fazendo requisição 5: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:39,837 - tennis_collector - INFO - Fazendo requisição 6: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:41,613 - tennis_collector - INFO - Fazendo requisição 7: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:43,310 - tennis_collector - INFO - Fazendo requisição 8: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:45,095 - tennis_collector - INFO - Fazendo requisição 9: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:46,789 - tennis_collector - INFO - Fazendo requisição 10: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:48,555 - tennis_collector - INFO - Fazendo requisição 11: https://api.b365api.com/v3/events/upcoming
+2025-08-03 06:25:50,238 - tennis_collector - INFO - Coletados 256 eventos futuros
+2025-08-03 06:25:51,738 - tennis_collector - INFO - Coletando eventos finalizados (1 dias, max 3 páginas)...
+2025-08-03 06:25:51,738 - tennis_collector - INFO - Fazendo requisição 12: https://api.b365api.com/v3/events/ended
+2025-08-03 06:25:53,916 - tennis_collector - INFO - Fazendo requisição 13: https://api.b365api.com/v3/events/ended
+2025-08-03 06:25:55,626 - tennis_collector - INFO - Coletados 50 eventos finalizados
+2025-08-03 06:25:57,126 - root - ERROR - Erro ao criar referência de endpoints: TennisDataCollector.collect_event_odds() got an unexpected keyword argument 'source'
