@@ -1168,12 +1168,12 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             try:
                                 probabilidade = momentum / 100
                                 ev_partida = (probabilidade * odd_valor) - 1
-                                print(f"🧮 EV calculado: MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
+                                # Debug suprimido: print(f"🧮 EV calculado: MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
                             except:
                                 ev_partida = 0
-                                print(f"⚠️ Erro no cálculo EV: MS={momentum}, Odd={odd_valor_raw}")
+                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV: MS={momentum}, Odd={odd_valor_raw}")
                         else:
-                            print(f"⚠️ EV não calculado: MS={momentum}, Odd={odd_valor_raw} (inválida)")
+                            # Debug suprimido: print(f"⚠️ EV não calculado: MS={momentum}, Odd={odd_valor_raw} (inválida)")
                             ev_partida = 0
                     
                     # Log partida rejeitada por odds
@@ -1259,12 +1259,12 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             try:
                                 probabilidade = momentum / 100
                                 ev_partida = (probabilidade * odd_valor) - 1
-                                print(f"🧮 EV calculado (filtros rígidos): MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
+                                # Debug suprimido: print(f"🧮 EV calculado (filtros rígidos): MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
                             except:
                                 ev_partida = 0
-                                print(f"⚠️ Erro no cálculo EV (filtros rígidos): MS={momentum}, Odd={odd_valor_raw}")
+                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV (filtros rígidos): MS={momentum}, Odd={odd_valor_raw}")
                         else:
-                            print(f"⚠️ EV não calculado (filtros rígidos): MS={momentum}, Odd={odd_valor_raw} (inválida)")
+                            # Debug suprimido: print(f"⚠️ EV não calculado (filtros rígidos): MS={momentum}, Odd={odd_valor_raw} (inválida)")
                             ev_partida = 0
                     
                     # Log partida rejeitada por filtros rígidos
@@ -1334,12 +1334,12 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             try:
                                 probabilidade = momentum / 100
                                 ev_partida = (probabilidade * odd_valor_calc) - 1
-                                print(f"🧮 EV calculado (sinal gerado): MS={momentum}%, Odd={odd_valor_calc} → EV={ev_partida:.3f}")
+                                # Debug suprimido: print(f"🧮 EV calculado (sinal gerado): MS={momentum}%, Odd={odd_valor_calc} → EV={ev_partida:.3f}")
                             except:
                                 ev_partida = 0
-                                print(f"⚠️ Erro no cálculo EV (sinal gerado): MS={momentum}, Odd={odd_valor_raw}")
+                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV (sinal gerado): MS={momentum}, Odd={odd_valor_raw}")
                         else:
-                            print(f"⚠️ EV não calculado (sinal gerado): MS={momentum}, Odd={odd_valor_raw} (inválida)")
+                            # Debug suprimido: print(f"⚠️ EV não calculado (sinal gerado): MS={momentum}, Odd={odd_valor_raw} (inválida)")
                             ev_partida = 0
                     
                     # Log sinal tradicional gerado

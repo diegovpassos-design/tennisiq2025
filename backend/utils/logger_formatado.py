@@ -49,34 +49,37 @@ class LoggerFormatado:
     def log_coleta_dados(self, total_partidas, aprovadas_timing, requests_usados=0):
         """Log da fase de coleta de dados"""
         if self.nivel_verbosidade == "MINIMAL":
-            print(f"📡 {total_partidas} partidas • {aprovadas_timing} timing OK")
+            if total_partidas > 0:
+                print(f"📡 {total_partidas} partidas • {aprovadas_timing} timing OK")
             return
-            
-        porcentagem = (aprovadas_timing / total_partidas * 100) if total_partidas > 0 else 0
         
-        print(f"\n📡 COLETA DE DADOS")
-        print(f"├─ ✅ {total_partidas} partidas encontradas")
-        print(f"├─ ⏱️  {aprovadas_timing} aprovadas no timing ({porcentagem:.0f}%)")
-        if requests_usados > 0:
-            print(f"├─ 📊 {requests_usados} requests API utilizados")
-        print(f"└─ 🎯 Processando análise detalhada...")
+        # Apenas estatísticas essenciais para NORMAL
+        if self.nivel_verbosidade == "NORMAL":
+            if total_partidas > 0:
+                print(f"\n📡 {total_partidas} partidas encontradas • {aprovadas_timing} aprovadas no timing")
+        else:  # DEBUG
+            porcentagem = (aprovadas_timing / total_partidas * 100) if total_partidas > 0 else 0
+            print(f"\n📡 COLETA DE DADOS")
+            print(f"├─ ✅ {total_partidas} partidas encontradas")
+            print(f"├─ ⏱️  {aprovadas_timing} aprovadas no timing ({porcentagem:.0f}%)")
+            if requests_usados > 0:
+                print(f"├─ 📊 {requests_usados} requests API utilizados")
+            print(f"└─ 🎯 Processando análise detalhada...")
     
     def log_partidas_prioritarias(self, partidas_aprovadas):
-        """Log das partidas que passaram no timing"""
-        if not partidas_aprovadas:
-            if self.nivel_verbosidade != "MINIMAL":
-                print(f"\n🔍 PARTIDAS APROVADAS")
-                print(f"└─ ❌ Nenhuma partida aprovada no timing")
-            return
+        """Log das partidas que passaram no timing - SILENCIOSO EM NORMAL"""
+        if self.nivel_verbosidade != "DEBUG":
+            return  # Não mostrar em MINIMAL nem NORMAL
             
-        if self.nivel_verbosidade == "MINIMAL":
-            print(f"🎯 {len(partidas_aprovadas)} partidas para análise")
+        if not partidas_aprovadas:
+            print(f"\n🔍 PARTIDAS APROVADAS")
+            print(f"└─ ❌ Nenhuma partida aprovada no timing")
             return
             
         print(f"\n📊 PARTIDAS PRIORITÁRIAS ({len(partidas_aprovadas)})")
         print("┌" + "─"*47 + "┐")
         
-        for i, partida in enumerate(partidas_aprovadas[:5], 1):  # Top 5
+        for i, partida in enumerate(partidas_aprovadas[:3], 1):  # Apenas top 3
             prioridade = partida.get('prioridade', 0)
             emoji_prioridade = self._get_emoji_prioridade(prioridade)
             estrategia = self._get_estrategia_partida(partida)
@@ -91,31 +94,36 @@ class LoggerFormatado:
             print(f"│    📍 {fase} ({placar}) • {liga:<15} │")
             print(f"│    🎯 Prioridade {prioridade}/5 • {estrategia:<17} │")
             
-            if i < len(partidas_aprovadas) and i < 5:
+            if i < len(partidas_aprovadas) and i < 3:
                 print("├" + "─"*47 + "┤")
         
         print("└" + "─"*47 + "┘")
     
     def log_analise_filtros(self, resultados_filtros):
-        """Log da análise de filtros com resultados"""
+        """Log da análise de filtros com resultados - APENAS APROVADOS EM NORMAL"""
         if not resultados_filtros:
-            if self.nivel_verbosidade != "MINIMAL":
-                print(f"\n🔍 ANÁLISE DE FILTROS")
-                print(f"└─ ⚠️  Nenhum resultado para analisar")
             return
             
         aprovados = [r for r in resultados_filtros if r.get('aprovado', False)]
         reprovados = [r for r in resultados_filtros if not r.get('aprovado', False)]
         
         if self.nivel_verbosidade == "MINIMAL":
-            print(f"🔍 Filtros: {len(aprovados)} aprovados, {len(reprovados)} reprovados")
             if aprovados:
-                for resultado in aprovados:
-                    jogador = resultado.get('jogador', 'N/A')[:20]
-                    estrategia = resultado.get('estrategia', 'N/A')
-                    print(f"✅ {jogador} ({estrategia})")
+                print(f"🎯 {len(aprovados)} oportunidade(s)")
             return
             
+        # NORMAL: Só mostrar aprovados
+        if self.nivel_verbosidade == "NORMAL":
+            if aprovados:
+                print(f"\n🎯 OPORTUNIDADES ENCONTRADAS ({len(aprovados)})")
+                for resultado in aprovados:
+                    jogador = resultado.get('jogador', 'N/A')
+                    ev = resultado.get('ev', 0)
+                    estrategia = resultado.get('estrategia', 'RIGOROSA')
+                    print(f"   ✅ {jogador} • EV: {ev:.3f} ({estrategia})")
+            return
+            
+        # DEBUG: Mostrar tudo
         print(f"\n🔍 ANÁLISE DE FILTROS")
         
         if aprovados:
@@ -129,15 +137,15 @@ class LoggerFormatado:
                 print(f"│    📊 EV: {ev:.3f} | MS: {ms}% • {estrategia} │")
             print("└─────────────────────────────────────────────┘")
         
-        if reprovados and self.nivel_verbosidade == "DEBUG":
+        if reprovados:
             print("┌─ REPROVADOS (DEBUG) ────────────────────────┐")
-            for resultado in reprovados[:3]:  # Só primeiros 3
+            for resultado in reprovados[:2]:  # Só primeiros 2
                 jogador = resultado.get('jogador', 'N/A')
                 motivo = resultado.get('motivo_reprovacao', 'N/A')
                 print(f"│ ❌ {jogador:<25} │")
                 print(f"│    📊 {motivo:<35} │")
-            if len(reprovados) > 3:
-                print(f"│    ... e mais {len(reprovados)-3} reprovados │")
+            if len(reprovados) > 2:
+                print(f"│    ... e mais {len(reprovados)-2} reprovados │")
             print("└─────────────────────────────────────────────┘")
     
     def log_oportunidades_encontradas(self, oportunidades):

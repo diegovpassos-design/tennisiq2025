@@ -117,9 +117,9 @@ def buscar_odds_evento(event_id, api_key, base_url):
                         except (ValueError, IndexError, KeyError):
                             continue
                 
-                print(f"⚠️ Nenhuma odd válida encontrada para evento {event_id}")
+                # Aviso suprimido para logs mais limpos
         
-        print(f"⚠️ Estrutura de odds não encontrada para evento {event_id}")
+        # Aviso suprimido para logs mais limpos
         return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
         
     except Exception as e:
@@ -728,11 +728,11 @@ def analisar_ev_partidas():
             if is_alta_tensao:
                 criterios = CRITERIOS_INVERTIDOS
                 estrategia_tipo = "INVERTIDA (3º set/alta tensão)"
-                print(f"   🎯 APLICANDO ESTRATÉGIA INVERTIDA - Critérios relaxados para cenário de alta tensão")
+                # Debug suprimido para logs mais limpos
             else:
                 criterios = CRITERIOS_RIGOROSOS
                 estrategia_tipo = "RIGOROSA (situação normal)"
-                print(f"   📊 APLICANDO CRITÉRIOS RIGOROSOS - Situação normal")
+                # Debug suprimido para logs mais limpos
             
             # APLICAR FILTROS BASEADOS NA ESTRATÉGIA ESCOLHIDA
             filtros_aprovados = []
@@ -797,12 +797,11 @@ def analisar_ev_partidas():
                 }
                 oportunidades_finais.append(oportunidade)
                 
-                print(f"   🎯 OPORTUNIDADE ENCONTRADA - {jogador_info['nome']}")
-                print(f"      {' | '.join(filtros_aprovados)}")
+                # Debug suprimido - oportunidade encontrada
+                pass
             else:
-                print(f"   ❌ {jogador_info['nome']} - Filtros reprovados:")
-                for filtro in filtros_rejeitados:
-                    print(f"      {filtro}")
+                # Debug suprimido - filtros reprovados  
+                pass
         
         print("-" * 60)
     
