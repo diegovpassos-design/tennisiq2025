@@ -317,7 +317,10 @@ class TennisIQBot:
         print("🔄 Dados mensais resetados")
     
     def gerar_relatorio_diario(self):
-        """Gera e envia relatório diário."""
+        """Gera e envia relatório diário. - DESABILITADO"""
+        print("📅 Relatório diário desabilitado por solicitação do usuário")
+        return  # ❌ FUNÇÃO DESABILITADA
+        
         agora = datetime.now()
         data_atual = agora.strftime('%d/%m/%Y')
         
@@ -367,7 +370,10 @@ class TennisIQBot:
         return sucesso
     
     def gerar_relatorio_mensal(self):
-        """Gera e envia relatório mensal."""
+        """Gera e envia relatório mensal. - DESABILITADO"""
+        print("🗓️ Relatório mensal desabilitado por solicitação do usuário")
+        return  # ❌ FUNÇÃO DESABILITADA
+        
         agora = datetime.now()
         mes_anterior = agora.replace(day=1) - timedelta(days=1)
         nome_mes = mes_anterior.strftime('%B/%Y')
@@ -453,31 +459,32 @@ class TennisIQBot:
         # Verificar links da Bet365 proativamente
         self.verificar_links_bet365()
         
+        # ❌ RELATÓRIOS DESABILITADOS POR SOLICITAÇÃO DO USUÁRIO
         # Verificar se há relatório diário em atraso (apenas uma vez por execução)
-        if not self.relatorio_atraso_verificado and self.data_ultimo_relatorio_diario != data_hoje:
-            print("📅 Detectado relatório diário em atraso, enviando...")
-            self.gerar_relatorio_diario()
-            self.relatorio_atraso_verificado = True
+        # if not self.relatorio_atraso_verificado and self.data_ultimo_relatorio_diario != data_hoje:
+        #     print("📅 Detectado relatório diário em atraso, enviando...")
+        #     self.gerar_relatorio_diario()
+        #     self.relatorio_atraso_verificado = True
                 
         # Verificar relatório diário (janela flexível: 23:30 às 00:00)
-        janela_relatorio = ((agora.hour == 23 and agora.minute >= 30) or 
-                           (agora.hour == 0 and agora.minute == 0))
+        # janela_relatorio = ((agora.hour == 23 and agora.minute >= 30) or 
+        #                    (agora.hour == 0 and agora.minute == 0))
         
-        if janela_relatorio:
-            # Verificar se já enviou hoje
-            if self.data_ultimo_relatorio_diario != data_hoje:
-                print("🕐 Janela do relatório diário ativa (23:30-00:00)!")
-                self.gerar_relatorio_diario()
+        # if janela_relatorio:
+        #     # Verificar se já enviou hoje
+        #     if self.data_ultimo_relatorio_diario != data_hoje:
+        #         print("🕐 Janela do relatório diário ativa (23:30-00:00)!")
+        #         self.gerar_relatorio_diario()
         
         # Verificar relatório mensal (último dia do mês - janela flexível: 23:30 às 00:00)
-        if janela_relatorio:
-            # Verificar se é o último dia do mês
-            amanha = agora + timedelta(days=1)
-            if amanha.day == 1:  # Se amanhã é dia 1, hoje é último dia do mês
-                # Verificar se já enviou este mês
-                if self.data_ultimo_relatorio_mensal != data_hoje:
-                    print("🗓️ Janela do relatório mensal ativa (23:30-00:00)!")
-                    self.gerar_relatorio_mensal()
+        # if janela_relatorio:
+        #     # Verificar se é o último dia do mês
+        #     amanha = agora + timedelta(days=1)
+        #     if amanha.day == 1:  # Se amanhã é dia 1, hoje é último dia do mês
+        #         # Verificar se já enviou este mês
+        #         if self.data_ultimo_relatorio_mensal != data_hoje:
+        #             print("🗓️ Janela do relatório mensal ativa (23:30-00:00)!")
+        #             self.gerar_relatorio_mensal()
         
     def limpar_cache_antigo(self):
         """Limpa cache de partidas antigas para evitar acúmulo excessivo."""
