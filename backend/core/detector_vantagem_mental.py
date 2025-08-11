@@ -24,6 +24,13 @@ class DetectorVantagemMental:
         
         self.threshold_ativacao = 200  # Score mínimo para inverter aposta
         self.odd_minima_adversario = 1.8
+    
+    def _converter_odd_float(self, odd_value):
+        """Converte odd para float de forma segura"""
+        try:
+            return float(odd_value) if odd_value else 0.0
+        except (ValueError, TypeError):
+            return 0.0
         
     def analisar_partida(self, partida_data):
         """
@@ -75,12 +82,12 @@ class DetectorVantagemMental:
             fatores.append('recuperacao_apos_desvantagem')
         
         # 3. Situação "nada a perder" (odd alta)
-        if adversario.get('odd', 0) >= 2.0:
+        if self._converter_odd_float(adversario.get('odd', 0)) >= 2.0:
             score += self.fatores_mentais['situacao_nada_perder']
             fatores.append('situacao_nada_perder')
         
         # 4. Pressão no favorito (odd baixa)
-        if favorito.get('odd', 0) <= 1.6:
+        if self._converter_odd_float(favorito.get('odd', 0)) <= 1.6:
             score += self.fatores_mentais['pressao_no_favorito']
             fatores.append('pressao_no_favorito')
         
@@ -110,7 +117,7 @@ class DetectorVantagemMental:
         if '7-6' in placar or '6-7' in placar:
             # Lógica simplificada: se adversário tem odd alta e há tie-break,
             # assume que pode ter vencido (precisa dados mais específicos)
-            return adversario.get('odd', 0) >= 2.0
+            return self._converter_odd_float(adversario.get('odd', 0)) >= 2.0
         return False
     
     def _detectar_recuperacao(self, placar, adversario):
@@ -121,7 +128,7 @@ class DetectorVantagemMental:
         if len(sets) >= 2:
             # Se há pelo menos 2 sets e adversário tem odd alta,
             # pode estar se recuperando
-            return adversario.get('odd', 0) >= 2.0
+            return self._converter_odd_float(adversario.get('odd', 0)) >= 2.0
         return False
     
     def _detectar_terceiro_set(self, placar):
@@ -146,6 +153,12 @@ class DetectorVantagemMental:
         """
         score = score_mental['score']
         odd_adversario = adversario.get('odd', 0)
+        
+        # Converter odd para float se for string
+        try:
+            odd_adversario = float(odd_adversario) if odd_adversario else 0.0
+        except (ValueError, TypeError):
+            odd_adversario = 0.0
         
         # Critérios para inversão
         score_suficiente = score >= self.threshold_ativacao
