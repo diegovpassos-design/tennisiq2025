@@ -1403,9 +1403,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         elif estrategia_tipo == 'TRADICIONAL':
             prioridade = oportunidade.get('prioridade_timing', 0)
             
-            # Exigir prioridade 4+ sempre
-            if prioridade < 4:
-                print(f"❌ Timing tradicional: Prioridade {prioridade} < 4")
+            # Exigir prioridade 3+ sempre
+            if prioridade < 3:
+                print(f"❌ Timing tradicional: Prioridade {prioridade} < 3")
                 return False
             
             # Bloquear madrugada sempre
@@ -1419,7 +1419,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             
             # Horário marginal
             print(f"⚠️ Timing tradicional: Horário marginal {hora_atual}h")
-            return prioridade >= 5  # Exigir prioridade máxima
+            return prioridade >= 3  # Prioridade mínima 3
         
         return False
     
@@ -1474,27 +1474,45 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         }
     
     def enviar_sinal_invertido(self, sinal):
-        """Envia sinal de aposta invertida"""
+        """Envia sinal de aposta invertida no formato padrão TennisIQ"""
         try:
-            mensagem = f"""
-🧠 **APOSTA INVERTIDA - VANTAGEM MENTAL**
+            # Extrair dados básicos
+            jogador_alvo = sinal['jogador_alvo']
+            odd_alvo = sinal['odd_alvo']
+            partida_original = sinal['partida_original']
+            
+            # Determinar oponente (extrair do formato "Jogador vs Oponente")
+            if ' vs ' in partida_original:
+                jogadores = partida_original.split(' vs ')
+                # O oponente é quem não é o jogador alvo
+                oponente = jogadores[1] if jogadores[0] == jogador_alvo else jogadores[0]
+            else:
+                oponente = "Oponente"
+            
+            # Calcular odd mínima
+            odd_minima = self.calcular_odd_minima(odd_alvo)
+            
+            # Usar horário atual
+            agora = datetime.now()
+            horario = agora.strftime("%H:%M")
+            
+            # Gerar link direto da Bet365 (se disponível)
+            event_id = sinal.get('event_id', '')
+            bet365_link = bet365_manager.generate_link(event_id) if event_id else "Link não disponível"
+            
+            # Montar sinal no formato padrão TennisIQ
+            mensagem = f"""🎾 TennisIQ - Sinal
 
-🎯 **Apostar em: {sinal['jogador_alvo']}**
-💰 Odd: {sinal['odd_alvo']}
-📈 EV Estimado: {sinal['ev_estimado']}
+{oponente} vs {jogador_alvo}
+⏰ {horario}
 
-💪 **Score Mental: {sinal['score_mental']} pontos**
-🔍 **Fatores Detectados:**
-{chr(10).join([f"• {fator}" for fator in sinal['fatores_mentais']])}
+� APOSTAR EM: {jogador_alvo} 🚀
+� Odd: {odd_alvo}
+⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
 
-🎯 **Confiança: {sinal['confianca']:.1f}%**
-📝 **Justificativa:** {sinal['justificativa']}
+🔗 Link direto: {bet365_link}
 
-⚡ **ESTRATÉGIA: {sinal['estrategia']}**
-🚨 **PRIORIDADE: {sinal['prioridade']}**
-
-📊 **Partida Original:** {sinal['partida_original']}
-"""
+#TennisIQ"""
             
             # Salvar log da aposta invertida
             self.log_aposta_invertida(sinal)

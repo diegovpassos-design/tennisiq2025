@@ -316,23 +316,23 @@ def analisar_ev_partidas():
     print("🎾 SELEÇÃO FINAL - ANÁLISE REFINADA COM MÚLTIPLOS FILTROS")
     print("=" * 70)
     print("🔍 Aplicando filtros: Timing OBRIGATÓRIO + EV + MS + DF + W1S")
-    # FILTROS AJUSTADOS - ESTRATÉGIA INVERTIDA
+    # FILTROS AJUSTADOS - ESTRATÉGIA RIGOROSA
     CRITERIOS_RIGOROSOS = {
-        'EV_MINIMO': 0.15,        # Alterado de 0.25 para 0.15
-        'MOMENTUM_SCORE_MINIMO': 65,  # Mantido
-        'WIN_1ST_SERVE_MINIMO': 65,   # Alterado de 70 para 65
-        'DOUBLE_FAULTS_MAXIMO': 4,    # Alterado de 2 para 4
-        'PRIORIDADE_MINIMA': 4        # Mantido
+        'EV_MINIMO': 0.15,        # EV mínimo 0.15 (máx 0.50)
+        'MOMENTUM_SCORE_MINIMO': 65,  # MS ≥ 65% sem limite máximo
+        'WIN_1ST_SERVE_MINIMO': 65,   # W1S ≥ 65% sem limite máximo
+        'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5
+        'PRIORIDADE_MINIMA': 3        # Prioridade ≥ 3
     }
     
     # 🎯 CRITÉRIOS ESPECIAIS PARA ESTRATÉGIA INVERTIDA (3º sets e alta tensão)
     CRITERIOS_INVERTIDOS = {
-        'EV_MINIMO': -1.0,        # EV muito relaxado para 3º sets
+        'EV_MINIMO': -1.0,        # EV relaxado para 3º sets
         'EV_MAXIMO': 2.0,         # Permitir EVs altos também
-        'MOMENTUM_SCORE_MINIMO': 30,  # Muito mais baixo para cenários de tensão
-        'WIN_1ST_SERVE_MINIMO': 40,   # Relaxado para fadiga de 3º set
-        'DOUBLE_FAULTS_MAXIMO': 8,    # Permitir mais DFs em cenários de pressão
-        'PRIORIDADE_MINIMA': 4        # Mantido - só 3º sets (5) e 2º sets críticos (4)
+        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% sem limite máximo
+        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% sem limite máximo
+        'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5
+        'PRIORIDADE_MINIMA': 3        # Prioridade ≥ 3
     }
     
     print("🎯 FILTROS AJUSTADOS - Configuração moderada")
@@ -655,11 +655,10 @@ def analisar_ev_partidas():
             except (ValueError, TypeError):
                 filtros_rejeitados.append(f"DF: dados inválidos ❌")
             
-            # Filtro Win 1st Serve: Adaptativo
+            # Filtro Win 1st Serve: Apenas mínimo
             try:
                 w1s_value = float(dados_jogador['win_1st_serve']) if dados_jogador['win_1st_serve'] else 0
-                w1s_max = 85 if is_alta_tensao else 80  # Mais permissivo para estratégia invertida
-                if criterios['WIN_1ST_SERVE_MINIMO'] <= w1s_value <= w1s_max:
+                if w1s_value >= criterios['WIN_1ST_SERVE_MINIMO']:
                     filtros_aprovados.append(f"W1S: {w1s_value}% ✅ ({estrategia_tipo})")
                 else:
                     filtros_rejeitados.append(f"W1S: {w1s_value}% ❌ (min {criterios['WIN_1ST_SERVE_MINIMO']}% - {estrategia_tipo})")
