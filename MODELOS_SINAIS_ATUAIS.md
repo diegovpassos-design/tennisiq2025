@@ -2,7 +2,11 @@
 
 ### � **ESTRATÉGIA TRADICIONAL** (Prioridade 3)
 ```
-🎾 TennisIQ - Sinal - Tradicional 🔥
+🎾 TennisIQ -| Estratégia | Prioridade | Emoji | Odds | Quando é Enviada |
+|------------|------------|-------|------|------------------|
+| 🚀 **Alavancagem** | 5 | 🚀 | 1.20-1.40 | Dominância consolidada (1º set vencido + liderando 2º) |
+| 🟣 **Invertida** | 5 | 🔁 | 1.8-2.2 | Vantagem mental detectada (score ≥200 + múltiplos fatores) |
+| 🔥 **Tradicional** | 3 | 🔥 | 1.8-2.2 | Estatísticas sólidas padrão |l - Tradicional 🔥
 
 {Oponente} vs {Jogador_Alvo}
 ⏰ {Horário_Brasília}
@@ -39,7 +43,7 @@
 
 ---
 
-## 🟣 ESTRATÉGIA INVERTIDA (VANTAGEM MENTAL)
+### 🟣 **ESTRATÉGIA INVERTIDA** (Prioridade 5) - Odds 1.8-2.2
 
 ```
 🎾 TennisIQ - Sinal - Invertida 🔁
@@ -60,7 +64,7 @@
 - **Título**: `🎾 TennisIQ - Sinal - Invertida 🔁`
 - **Emoji**: 🔁 (seta invertida)
 - **Prioridade**: 5 (alta)
-- **Critérios**: Vantagem mental detectada, score mental ≥ 7, jogador perdendo mas com potencial
+- **Critérios**: Vantagem mental detectada, score mental ≥ 200, **odds 1.8-2.2**
 
 ---
 

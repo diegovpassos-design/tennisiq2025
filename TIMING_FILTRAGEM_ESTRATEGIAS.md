@@ -77,11 +77,11 @@ if prioridade >= 3:
 
 ## 📊 **COMPARATIVO DE FLEXIBILIDADE**
 
-| Estratégia | Flexibilidade | Madrugada | Override | Prioridade |
-|------------|---------------|-----------|----------|------------|
-| 🚀 **Alavancagem** | 🟢 **MUITO ALTA** | ✅ Se momentum ≥70% | ✅ 2º set + momentum | 5 |
-| 🟣 **Invertida** | 🟡 **ALTA** | ✅ Se score ≥250 | ✅ Situações críticas | 5 |
-| 🔥 **Tradicional** | 🔴 **BAIXA** | ❌ Sempre bloqueada | ❌ Sem override | 3 |
+| Estratégia | Flexibilidade | Madrugada | Override | Odds | Prioridade |
+|------------|---------------|-----------|----------|------|------------|
+| 🚀 **Alavancagem** | 🟢 **MUITO ALTA** | ✅ Se momentum ≥70% | ✅ 2º set + momentum | 1.20-1.40 | 5 |
+| 🟣 **Invertida** | 🟡 **ALTA** | ✅ Se score ≥250 | ✅ Situações críticas | 1.8-2.2 | 5 |
+| 🔥 **Tradicional** | 🔴 **BAIXA** | ❌ Sempre bloqueada | ❌ Sem override | 1.8-2.2 | 3 |
 
 ---
 

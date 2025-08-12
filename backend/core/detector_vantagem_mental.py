@@ -4,6 +4,11 @@
 MÓDULO: DETECTOR DE VANTAGEM MENTAL
 ==================================
 Sistema para identificar e apostar em adversários com vantagem psicológica
+
+CRITÉRIOS DE ODDS:
+- Odd mínima do adversário: 1.8
+- Odd máxima do adversário: 2.2
+- Range alvo: 1.8 - 2.2 (odds equilibradas para vantagem mental)
 """
 
 import re
@@ -23,7 +28,8 @@ class DetectorVantagemMental:
         }
         
         self.threshold_ativacao = 200  # Score mínimo para inverter aposta
-        self.odd_minima_adversario = 1.8
+        self.odd_minima_adversario = 1.8  # Odd mínima do adversário
+        self.odd_maxima_adversario = 2.2  # Odd máxima do adversário (meta específica)
     
     def _converter_odd_float(self, odd_value):
         """Converte odd para float de forma segura"""
@@ -162,10 +168,13 @@ class DetectorVantagemMental:
         
         # Critérios para inversão
         score_suficiente = score >= self.threshold_ativacao
-        odd_atrativa = odd_adversario >= self.odd_minima_adversario
+        odd_no_range = (self.odd_minima_adversario <= odd_adversario <= self.odd_maxima_adversario)
         fatores_multiplos = len(score_mental['fatores']) >= 2
         
-        inverter = score_suficiente and odd_atrativa and fatores_multiplos
+        inverter = score_suficiente and odd_no_range and fatores_multiplos
+        
+        if not odd_no_range and odd_adversario > 0:
+            print(f"❌ INVERTIDA: Odd {odd_adversario} fora do range {self.odd_minima_adversario}-{self.odd_maxima_adversario}")
         
         if inverter:
             # Estima EV com base na odd e score mental
