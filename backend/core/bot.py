@@ -668,9 +668,41 @@ class TennisIQBot:
         except (ValueError, TypeError):
             return 2.00  # Valor padrão seguro
     
+    def determinar_estrategia_por_oportunidade(self, oportunidade):
+        """Determina qual estratégia gerou a oportunidade baseada nos dados."""
+        # Verificar se tem informação de estratégia na oportunidade
+        if 'estrategia' in oportunidade:
+            estrategia_nome = oportunidade['estrategia'].lower()
+            if 'alavancagem' in estrategia_nome:
+                return 'alavancagem'
+            elif 'invertida' in estrategia_nome:
+                return 'invertida'
+            elif 'tradicional' in estrategia_nome:
+                return 'tradicional'
+        
+        # Inferir pela odd range (se disponível)
+        if 'odd_estimada' in oportunidade:
+            odd = oportunidade['odd_estimada']
+            if 1.2 <= odd <= 1.4:
+                return 'alavancagem'
+            elif 1.8 <= odd <= 2.2:
+                return 'invertida'
+        
+        # Inferir pela fase do jogo
+        fase = oportunidade.get('fase', '').lower()
+        if '3set' in fase or 'mid' in fase:
+            return 'invertida'
+        
+        # Default: tradicional
+        return 'tradicional'
+    
     def validar_filtros_odds(self, oportunidade, odds_data):
         """Valida se a aposta passa nos filtros de odds (1.8 a 2.2)."""
         try:
+            # Determinar a estratégia baseada na oportunidade
+            estrategia = self.determinar_estrategia_por_oportunidade(oportunidade)
+            jogador = oportunidade['jogador']
+            
             # Determinar a odd correta baseado no tipo (HOME ou AWAY)
             if oportunidade.get('tipo') == 'HOME':
                 odd_atual = odds_data.get('jogador1_odd', 'N/A')
@@ -679,21 +711,21 @@ class TennisIQBot:
             
             # Converter para float para validação
             if odd_atual == 'N/A' or odd_atual == '-':
-                print(f"❌ Odd não disponível para {oportunidade['jogador']}")
+                logger_formatado.log_estrategia(estrategia, 'rejeicao', 'Odd não disponível', jogador)
                 return False, None
             
             odd_float = float(odd_atual)
             
             # FILTRO CRÍTICO: Odds entre 1.8 e 2.2 (baseado na análise)
             if not (1.8 <= odd_float <= 2.2):
-                print(f"❌ Odd {odd_float} fora do range 1.8-2.2 para {oportunidade['jogador']}")
+                logger_formatado.log_estrategia(estrategia, 'rejeicao', f'Odd {odd_float} fora do range 1.8-2.2', jogador)
                 return False, odd_float
             
-            print(f"✅ Odd {odd_float} aprovada para {oportunidade['jogador']}")
+            logger_formatado.log_estrategia(estrategia, 'sucesso', f'Odd {odd_float} aprovada', jogador)
             return True, odd_float
             
         except (ValueError, TypeError) as e:
-            print(f"❌ Erro ao validar odd para {oportunidade['jogador']}: {e}")
+            logger_formatado.log_estrategia('tradicional', 'rejeicao', f'Erro ao validar odd: {e}', oportunidade.get('jogador', 'N/A'))
             return False, None
 
     def gerar_sinal_tennisiq(self, oportunidade, odds_data, dados_filtros=None):
@@ -1315,7 +1347,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 
                 # ESTRATÉGIA TRADICIONAL: Aplicar novos filtros rígidos
                 if not self.aplicar_filtros_rigidos(oportunidade):
-                    print(f"❌ Oportunidade rejeitada pelos filtros rígidos: {jogador1}")
+                    logger_formatado.log_estrategia('tradicional', 'rejeicao', 'Rejeitada pelos filtros rígidos', jogador1)
                     
                     # Coletar estatísticas reais para o dashboard
                     stats_reais = self.coletar_estatisticas_reais(event_id)
@@ -1878,49 +1910,49 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             # EV mínimo ajustado para 0.15 (sincronizado)
             ev = oportunidade.get('ev', 0)
             if ev < 0.15:
-                print(f"❌ Filtro EV: {ev:.3f} < 0.15 (mínimo)")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', f'EV {ev:.3f} < 0.15 (mínimo)', oportunidade.get('jogador'))
                 return False
             
             # Momentum Score mínimo mantido em 65%
             momentum = oportunidade.get('momentum', 0)
             if momentum < 65:
-                print(f"❌ Filtro MS: {momentum:.1f}% < 65% (mínimo)")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', f'Momentum {momentum:.1f}% < 65% (mínimo)', oportunidade.get('jogador'))
                 return False
             
             # Win 1st Serve mínimo ajustado para 65% (sincronizado)
             win_1st = oportunidade.get('win_1st_serve', 0)
             if win_1st < 65:
-                print(f"❌ Filtro W1S: {win_1st:.1f}% < 65% (mínimo)")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', f'Win 1st Serve {win_1st:.1f}% < 65% (mínimo)', oportunidade.get('jogador'))
                 return False
             
             # Double Faults máximo ajustado para 4 (sincronizado)
             double_faults = oportunidade.get('double_faults', 0)
             if double_faults > 4:
-                print(f"❌ Filtro DF: {double_faults} > 4 (máximo)")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', f'Double faults {double_faults} > 4 (máximo)', oportunidade.get('jogador'))
                 return False
             
             # NOVO: Validação de timing inteligente para tradicional
             timing_aprovado = self.validar_timing_inteligente(oportunidade, 'TRADICIONAL')
             if not timing_aprovado:
-                print(f"❌ Filtro Timing: Horário inadequado para estratégia tradicional")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', 'Horário inadequado para estratégia tradicional', oportunidade.get('jogador'))
                 return False
             
             # BLOQUEIOS CONTEXTUAIS
             contexto = self.identificar_contexto_partida(oportunidade)
             
             if '3º set' in contexto:
-                print(f"❌ Bloqueio Contextual: 3º set detectado")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', '3º set detectado (bloqueio contextual)', oportunidade.get('jogador'))
                 return False
             
             if 'pós tie-break' in contexto:
-                print(f"❌ Bloqueio Contextual: pós tie-break detectado")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', 'Pós tie-break detectado (bloqueio contextual)', oportunidade.get('jogador'))
                 return False
             
             if 'sets empatados' in contexto:
-                print(f"❌ Bloqueio Contextual: sets empatados detectado")
+                logger_formatado.log_estrategia('tradicional', 'rejeicao', 'Sets empatados detectado (bloqueio contextual)', oportunidade.get('jogador'))
                 return False
             
-            print(f"✅ Todos os filtros rígidos aprovados para {oportunidade.get('jogador')}")
+            logger_formatado.log_estrategia('tradicional', 'sucesso', 'Todos os filtros rígidos aprovados', oportunidade.get('jogador'))
             return True
             
         except Exception as e:

@@ -139,20 +139,44 @@ class LoggerFormatado:
             print(f"├─ ✅ Sucessos: {sucessos}")
             print(f"├─ ❌ Rejeições: {rejeicoes}")
             
-            # Mostrar logs detalhados se houver rejeições (para debug)
-            if rejeicoes > 0 and self.nivel_verbosidade == "DEBUG":
-                print(f"├─ 📋 Detalhes das rejeições:")
-                for log in logs:
-                    if log['nivel'] == 'rejeicao':
-                        jogador = log['jogador'] if log['jogador'] else "N/A"
-                        print(f"│   • {jogador}: {log['mensagem'].split(' - ')[-1] if ' - ' in log['mensagem'] else 'Rejeitado'}")
+            # Mostrar detalhes das rejeições (sempre mostrar para clareza)
+            if rejeicoes > 0:
+                print(f"├─ 📋 Motivos das rejeições:")
+                rejeicoes_logs = [l for l in logs if l['nivel'] == 'rejeicao']
+                for log in rejeicoes_logs:
+                    jogador = log['jogador'] if log['jogador'] else "N/A"
+                    # Extrair só o motivo da mensagem completa
+                    mensagem_completa = log['mensagem']
+                    if ' - ' in mensagem_completa:
+                        motivo = mensagem_completa.split(' - ')[-1]
+                    else:
+                        # Extrair motivo após o emoji
+                        partes = mensagem_completa.split(': ')
+                        if len(partes) > 1:
+                            motivo = partes[-1].replace('❌ ', '')
+                        else:
+                            motivo = "Rejeitado"
+                    
+                    print(f"│   • {jogador}: {motivo}")
             
             # Mostrar sucessos sempre
             if sucessos > 0:
-                print(f"├─ 🎯 Oportunidades encontradas:")
-                for log in logs:
-                    if log['nivel'] == 'sucesso':
-                        print(f"│   • {log['mensagem']}")
+                print(f"├─ 🎯 Oportunidades aprovadas:")
+                sucessos_logs = [l for l in logs if l['nivel'] == 'sucesso']
+                for log in sucessos_logs:
+                    jogador = log['jogador'] if log['jogador'] else "N/A"
+                    # Extrair informação de sucesso
+                    mensagem_completa = log['mensagem']
+                    if ' - ' in mensagem_completa:
+                        info = mensagem_completa.split(' - ')[-1]
+                    else:
+                        partes = mensagem_completa.split(': ')
+                        if len(partes) > 1:
+                            info = partes[-1].replace('✅ ', '')
+                        else:
+                            info = "Aprovado"
+                    
+                    print(f"│   • {jogador}: {info}")
             
             print(f"└─ ⏱️  Última atividade: {logs[-1]['timestamp']}")
         
