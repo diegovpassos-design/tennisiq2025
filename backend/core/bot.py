@@ -61,12 +61,14 @@ except ImportError:
 try:
     from .extrair_stats_jogadores import extrair_stats_completas
     from .detector_vantagem_mental import DetectorVantagemMental
+    from .detector_alavancagem import DetectorAlavancagem
     from ..services.dashboard_logger import dashboard_logger
 except ImportError:
     # Execução direta - ajustar imports
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
     from core.extrair_stats_jogadores import extrair_stats_completas
     from core.detector_vantagem_mental import DetectorVantagemMental
+    from core.detector_alavancagem import DetectorAlavancagem
     from services.dashboard_logger import dashboard_logger
 
 # Adicionar diretórios ao path - nova estrutura
@@ -129,6 +131,10 @@ class TennisIQBot:
         # NOVO: Sistema de Vantagem Mental
         self.detector_mental = DetectorVantagemMental()
         self.apostas_invertidas = []  # Track separado para apostas invertidas
+        
+        # NOVO: Sistema de Alavancagem
+        self.detector_alavancagem = DetectorAlavancagem()
+        self.apostas_alavancagem = []  # Track separado para apostas de alavancagem
         
         # Sistema de contabilização de greens seguidos
         self.greens_seguidos = 0
@@ -1143,6 +1149,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # NOVA ANÁLISE: Vantagem Mental (Estratégia Invertida) - ANTES da validação de odds
                 analise_mental = self.analisar_vantagem_mental(oportunidade, odds_data)
                 
+                # NOVA ANÁLISE: Alavancagem (Estratégia de Alavancagem)
+                analise_alavancagem = self.analisar_alavancagem(oportunidade, odds_data)
+                
                 # FILTRO CRÍTICO: Validar odds entre 1.8 e 2.2
                 odds_valida, odd_valor = self.validar_filtros_odds(oportunidade, odds_data)
                 if not odds_valida:
@@ -1230,6 +1239,48 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             mental_score=analise_mental['score_mental'],
                             decisao='SINAL_INVERTIDO',
                             motivo=f"Vantagem mental detectada: {analise_mental['score_mental']} pontos",
+                            stats_jogador1=stats_reais.get('stats_jogador1', {}),
+                            stats_jogador2=stats_reais.get('stats_jogador2', {})
+                        )
+                        continue
+                
+                # ESTRATÉGIA DE ALAVANCAGEM: Verificar se atende aos critérios
+                if analise_alavancagem['alavancagem_aprovada']:
+                    # ESTRATÉGIA ALAVANCAGEM: Apostar no jogador da oportunidade
+                    sinal_alavancagem = self.preparar_sinal_alavancagem(analise_alavancagem, oportunidade, odds_data)
+                    if self.enviar_sinal_alavancagem(sinal_alavancagem):
+                        self.sinais_enviados.add(sinal_id)
+                        self.partidas_processadas.add(partida_unica_id)
+                        contador_sinais += 1
+                        print(f"🚀 Sinal ALAVANCAGEM enviado: {analise_alavancagem['jogador_alvo']}")
+                        
+                        # Log sinal alavancagem gerado
+                        dashboard_logger.log_sinal_gerado(
+                            tipo='ALAVANCAGEM',
+                            target=analise_alavancagem['jogador_alvo'],
+                            odd=analise_alavancagem['odd_alvo'],
+                            ev=analise_alavancagem['ev_estimado'],
+                            confianca=analise_alavancagem['confianca'],
+                            mental_score=0,  # Alavancagem não usa score mental
+                            fatores_mentais=f"Momentum: {analise_alavancagem['momentum_score']}%"
+                        )
+                        
+                        # Coletar estatísticas reais para o dashboard
+                        stats_reais = self.coletar_estatisticas_reais(event_id)
+                        
+                        # Log partida analisada com sucesso
+                        dashboard_logger.log_partida_analisada(
+                            jogador1=jogador1,
+                            jogador2=oportunidade.get('oponente', 'N/A'),
+                            placar=oportunidade.get('placar', 'N/A'),
+                            odds1=odds_data.get('jogador1_odd', 0),
+                            odds2=odds_data.get('jogador2_odd', 0),
+                            ev=analise_alavancagem['ev_estimado'],
+                            momentum_score=analise_alavancagem['momentum_score'],
+                            timing_priority=oportunidade.get('prioridade_timing', 0),
+                            mental_score=0,
+                            decisao='SINAL_ALAVANCAGEM',
+                            motivo=f"Critérios de alavancagem atendidos: {analise_alavancagem['justificativa']}",
                             stats_jogador1=stats_reais.get('stats_jogador1', {}),
                             stats_jogador2=stats_reais.get('stats_jogador2', {})
                         )
@@ -1525,6 +1576,25 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         
         return ', '.join(contexto) if contexto else 'normal'
     
+    def analisar_alavancagem(self, oportunidade, odds_data):
+        """
+        Analisa se a oportunidade atende aos critérios de alavancagem
+        """
+        try:
+            # Obter placar da partida
+            placar = oportunidade.get('placar', '')
+            
+            # Usar o detector de alavancagem
+            analise = self.detector_alavancagem.analisar_oportunidade_alavancagem(
+                oportunidade, placar, odds_data
+            )
+            
+            return analise
+            
+        except Exception as e:
+            print(f"⚠️ Erro na análise de alavancagem: {e}")
+            return {'alavancagem_aprovada': False, 'erro': str(e)}
+    
     def preparar_sinal_invertido(self, analise_mental, oportunidade, odds_data):
         """Prepara sinal para aposta invertida"""
         return {
@@ -1618,6 +1688,99 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             
         except Exception as e:
             print(f"⚠️ Erro ao salvar log da aposta invertida: {e}")
+    
+    def preparar_sinal_alavancagem(self, analise_alavancagem, oportunidade, odds_data):
+        """Prepara sinal para aposta de alavancagem"""
+        return {
+            'tipo': 'ALAVANCAGEM',
+            'jogador_alvo': analise_alavancagem['jogador_alvo'],
+            'odd_alvo': analise_alavancagem['odd_alvo'],
+            'ev_estimado': analise_alavancagem['ev_estimado'],
+            'momentum_score': analise_alavancagem['momentum_score'],
+            'confianca': analise_alavancagem['confianca'],
+            'justificativa': analise_alavancagem['justificativa'],
+            'partida_original': f"{oportunidade.get('jogador')} vs {oportunidade.get('oponente')}",
+            'prioridade': 5,
+            'estrategia': 'ALAVANCAGEM',
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    def enviar_sinal_alavancagem(self, sinal):
+        """Envia sinal de aposta de alavancagem no formato padrão TennisIQ"""
+        try:
+            # Extrair dados básicos
+            jogador_alvo = sinal['jogador_alvo']
+            odd_alvo = sinal['odd_alvo']
+            partida_original = sinal['partida_original']
+            
+            # Determinar oponente (extrair do formato "Jogador vs Oponente")
+            if ' vs ' in partida_original:
+                jogadores = partida_original.split(' vs ')
+                # O oponente é quem não é o jogador alvo
+                oponente = jogadores[1] if jogadores[0] == jogador_alvo else jogadores[0]
+            else:
+                oponente = "Oponente"
+            
+            # Calcular odd mínima
+            odd_minima = self.calcular_odd_minima(odd_alvo)
+            
+            # Usar horário de Brasília (UTC-3)
+            agora = datetime.now(timezone(timedelta(hours=-3)))
+            horario = agora.strftime("%H:%M")
+            
+            # Gerar link direto da Bet365 (se disponível)
+            event_id = sinal.get('event_id', '')
+            bet365_link = bet365_manager.generate_link(event_id) if event_id else "Link não disponível"
+            
+            # Montar sinal no formato padrão TennisIQ
+            mensagem = f"""🎾 TennisIQ - Sinal - Alavancagem 🚀
+
+{oponente} vs {jogador_alvo}
+⏰ {horario}
+
+🚀 APOSTAR EM: {jogador_alvo} 🚀
+💰 Odd: {odd_alvo}
+⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
+
+🔗 Link direto: https://www.bet365.bet.br/?_h=LKUUnzn5idsD_NCCi9iyvQ%3D%3D&btsffd=1#/IP/EV10459378C13
+
+#TennisIQ"""
+            
+            # Salvar log da aposta de alavancagem
+            self.log_aposta_alavancagem(sinal)
+            
+            # Enviar via Telegram
+            return self.enviar_telegram(mensagem)
+            
+        except Exception as e:
+            print(f"❌ Erro ao enviar sinal alavancagem: {e}")
+            return False
+    
+    def log_aposta_alavancagem(self, sinal):
+        """Log específico para apostas de alavancagem"""
+        try:
+            log_entry = {
+                'timestamp': sinal['timestamp'],
+                'tipo': 'APOSTA_ALAVANCAGEM',
+                'partida_original': sinal['partida_original'],
+                'jogador_alvo': sinal['jogador_alvo'],
+                'odd_alvo': sinal['odd_alvo'],
+                'momentum_score': sinal['momentum_score'],
+                'ev_estimado': sinal['ev_estimado'],
+                'confianca': sinal['confianca'],
+                'justificativa': sinal['justificativa']
+            }
+            
+            self.apostas_alavancagem.append(log_entry)
+            
+            # Salvar em arquivo separado
+            with open('apostas_alavancagem.json', 'w', encoding='utf-8') as f:
+                json.dump(self.apostas_alavancagem, f, ensure_ascii=False, indent=2)
+            
+            print(f"📝 Log da aposta de alavancagem salvo: {sinal['jogador_alvo']}")
+            
+        except Exception as e:
+            print(f"⚠️ Erro ao salvar log da aposta de alavancagem: {e}")
     
     def aplicar_filtros_rigidos(self, oportunidade):
         """
