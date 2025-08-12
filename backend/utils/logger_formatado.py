@@ -17,6 +17,11 @@ class LoggerFormatado:
         self.nivel_verbosidade = "NORMAL"  # MINIMAL, NORMAL, DEBUG
         self.ciclo_atual = 0
         self.inicio_ciclo = None
+        self.logs_estrategias = {
+            'alavancagem': [],
+            'invertida': [],
+            'tradicional': []
+        }
         
     def set_verbosidade(self, nivel):
         """Define o nível de verbosidade: MINIMAL, NORMAL, DEBUG"""
@@ -36,6 +41,12 @@ class LoggerFormatado:
         """Inicia um novo ciclo com cabeçalho limpo"""
         self.ciclo_atual = numero_ciclo
         self.inicio_ciclo = datetime.now()
+        # Limpar logs das estratégias do ciclo anterior
+        self.logs_estrategias = {
+            'alavancagem': [],
+            'invertida': [],
+            'tradicional': []
+        }
         
         if self.nivel_verbosidade == "MINIMAL":
             print(f"\n🎾 CICLO {numero_ciclo} [{self.get_timestamp()}]")
@@ -45,6 +56,107 @@ class LoggerFormatado:
         print(f"🎾 TENNISIQ BOT - CICLO {numero_ciclo}")
         print(f"⏰ {self.get_data_completa()}")
         print(f"{'='*50}")
+    
+    def log_estrategia(self, estrategia, nivel, mensagem, jogador=None):
+        """Log específico para estratégias organizadas"""
+        estrategia = estrategia.lower()
+        
+        # Emojis para cada estratégia
+        emojis = {
+            'alavancagem': '🚀',
+            'invertida': '🟣', 
+            'tradicional': '🔵'
+        }
+        
+        # Cores para cada nível
+        niveis = {
+            'analise': '🔍',
+            'sucesso': '✅',
+            'rejeicao': '❌',
+            'info': 'ℹ️',
+            'aviso': '⚠️'
+        }
+        
+        emoji_estrategia = emojis.get(estrategia, '🎾')
+        emoji_nivel = niveis.get(nivel, 'ℹ️')
+        
+        # Formatar mensagem
+        if jogador:
+            log_msg = f"{emoji_estrategia} {estrategia.upper()}: {emoji_nivel} {jogador} - {mensagem}"
+        else:
+            log_msg = f"{emoji_estrategia} {estrategia.upper()}: {emoji_nivel} {mensagem}"
+        
+        # Armazenar no buffer da estratégia
+        self.logs_estrategias[estrategia].append({
+            'timestamp': self.get_timestamp(),
+            'nivel': nivel,
+            'mensagem': log_msg,
+            'jogador': jogador
+        })
+        
+        # Se não for modo organizado, printar imediatamente
+        if self.nivel_verbosidade == "DEBUG":
+            print(log_msg)
+    
+    def log_resumo_estrategias(self):
+        """Mostra logs organizados por estratégia ao final do ciclo"""
+        if self.nivel_verbosidade == "MINIMAL":
+            return
+            
+        # Contar atividade por estratégia
+        total_logs = sum(len(logs) for logs in self.logs_estrategias.values())
+        
+        if total_logs == 0:
+            print(f"\n🎯 ANÁLISE DE ESTRATÉGIAS")
+            print(f"└─ ⏸️  Nenhuma atividade de estratégias no ciclo")
+            return
+        
+        print(f"\n🎯 RESUMO DAS ESTRATÉGIAS")
+        print("═" * 55)
+        
+        # Processar cada estratégia
+        estrategias_ordem = ['alavancagem', 'invertida', 'tradicional']
+        emojis_estrategia = {
+            'alavancagem': '🚀',
+            'invertida': '🟣', 
+            'tradicional': '🔵'
+        }
+        
+        for estrategia in estrategias_ordem:
+            logs = self.logs_estrategias[estrategia]
+            if not logs:
+                continue
+                
+            emoji = emojis_estrategia[estrategia]
+            
+            # Contar tipos de log
+            analises = len([l for l in logs if l['nivel'] == 'analise'])
+            sucessos = len([l for l in logs if l['nivel'] == 'sucesso'])
+            rejeicoes = len([l for l in logs if l['nivel'] == 'rejeicao'])
+            
+            print(f"\n{emoji} ESTRATÉGIA {estrategia.upper()}")
+            print(f"├─ 🔍 Análises: {analises}")
+            print(f"├─ ✅ Sucessos: {sucessos}")
+            print(f"├─ ❌ Rejeições: {rejeicoes}")
+            
+            # Mostrar logs detalhados se houver rejeições (para debug)
+            if rejeicoes > 0 and self.nivel_verbosidade == "DEBUG":
+                print(f"├─ 📋 Detalhes das rejeições:")
+                for log in logs:
+                    if log['nivel'] == 'rejeicao':
+                        jogador = log['jogador'] if log['jogador'] else "N/A"
+                        print(f"│   • {jogador}: {log['mensagem'].split(' - ')[-1] if ' - ' in log['mensagem'] else 'Rejeitado'}")
+            
+            # Mostrar sucessos sempre
+            if sucessos > 0:
+                print(f"├─ 🎯 Oportunidades encontradas:")
+                for log in logs:
+                    if log['nivel'] == 'sucesso':
+                        print(f"│   • {log['mensagem']}")
+            
+            print(f"└─ ⏱️  Última atividade: {logs[-1]['timestamp']}")
+        
+        print("═" * 55)
     
     def log_coleta_dados(self, total_partidas, aprovadas_timing, requests_usados=0):
         """Log da fase de coleta de dados"""
@@ -181,8 +293,11 @@ class LoggerFormatado:
             duracao = datetime.now() - self.inicio_ciclo
             tempo_execucao = f"{duracao.seconds}s"
         
+        # Mostrar resumo das estratégias ANTES do resumo geral
+        self.log_resumo_estrategias()
+        
         if self.nivel_verbosidade == "MINIMAL":
-            print(f"📈 {stats.get('analisadas', 0)} analisadas • {stats.get('oportunidades', 0)} oportunidades • {tempo_execucao}")
+            print(f"\n📈 {stats.get('analisadas', 0)} analisadas • {stats.get('oportunidades', 0)} oportunidades • {tempo_execucao}")
             print(f"⏰ Próximo ciclo: {stats.get('proximo_ciclo', 60)}s")
             return
             

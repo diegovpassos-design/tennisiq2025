@@ -14,6 +14,7 @@ CRITÉRIOS DE ODDS:
 import re
 import json
 from datetime import datetime
+from backend.utils.logger_formatado import logger_formatado
 
 class DetectorVantagemMental:
     def __init__(self):
@@ -174,7 +175,9 @@ class DetectorVantagemMental:
         inverter = score_suficiente and odd_no_range and fatores_multiplos
         
         if not odd_no_range and odd_adversario > 0:
-            print(f"❌ INVERTIDA: Odd {odd_adversario} fora do range {self.odd_minima_adversario}-{self.odd_maxima_adversario}")
+            logger_formatado.log_estrategia('invertida', 'rejeicao', 
+                f'Odd {odd_adversario} fora do range {self.odd_minima_adversario}-{self.odd_maxima_adversario}',
+                adversario.get('nome', 'N/A'))
         
         if inverter:
             # Estima EV com base na odd e score mental

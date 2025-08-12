@@ -1160,7 +1160,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     )
                     
                     if not timing_aprovado:
-                        print(f"❌ Alavancagem rejeitada por timing inadequado")
+                        logger_formatado.log_estrategia('alavancagem', 'rejeicao', 'Timing inadequado', analise_alavancagem.get('jogador_alvo'))
                     else:
                         # ESTRATÉGIA ALAVANCAGEM: Apostar no jogador da oportunidade
                         sinal_alavancagem = self.preparar_sinal_alavancagem(analise_alavancagem, oportunidade, odds_data)
@@ -1168,7 +1168,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             self.sinais_enviados.add(sinal_id)
                             self.partidas_processadas.add(partida_unica_id)
                             contador_sinais += 1
-                            print(f"🚀 Sinal ALAVANCAGEM enviado: {analise_alavancagem['jogador_alvo']}")
+                            logger_formatado.log_estrategia('alavancagem', 'sucesso', f"Sinal enviado", analise_alavancagem['jogador_alvo'])
                             
                             # Log sinal alavancagem gerado
                             dashboard_logger.log_sinal_gerado(
@@ -1251,7 +1251,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # FILTRO CRÍTICO: Validar odds entre 1.8 e 2.2 (só para tradicional)
                 odds_valida, odd_valor = self.validar_filtros_odds(oportunidade, odds_data)
                 if not odds_valida:
-                    print(f"❌ Estratégia tradicional rejeitada pelo filtro de odds: {jogador1}")
+                    logger_formatado.log_estrategia('tradicional', 'rejeicao', f'Odds fora do range 1.8-2.2', jogador1)
                     
                     # Coletar estatísticas reais para o dashboard
                     stats_reais = self.coletar_estatisticas_reais(event_id)
@@ -1488,7 +1488,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     analise.get('score_mental', 0)
                 )
                 if not timing_aprovado:
-                    print(f"❌ Aposta invertida rejeitada por timing")
+                    logger_formatado.log_estrategia('invertida', 'rejeicao', 'Timing inadequado', oportunidade.get('jogador', 'N/A'))
                     analise['inverter_aposta'] = False
                     analise['motivo_rejeicao'] = 'Timing inadequado para estratégia invertida'
             
@@ -1654,12 +1654,14 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             
             # Log apenas resultado final (não debug detalhado)
             if analise['alavancagem_aprovada']:
-                print(f"✅ ALAVANCAGEM APROVADA: {analise.get('justificativa', 'N/A')}")
+                logger_formatado.log_estrategia('alavancagem', 'sucesso', 
+                    f"Aprovada: {analise.get('justificativa', 'N/A')}", 
+                    oportunidade.get('jogador', 'N/A'))
             
             return analise
             
         except Exception as e:
-            print(f"⚠️ Erro na análise de alavancagem: {e}")
+            logger_formatado.log_estrategia('alavancagem', 'rejeicao', f'Erro na análise: {e}')
             return {'alavancagem_aprovada': False, 'erro': str(e)}
     
     def preparar_sinal_invertido(self, analise_mental, oportunidade, odds_data):
@@ -1920,7 +1922,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         print("=" * 60)
         
         # Configurar verbosidade do logger (MINIMAL, NORMAL, DEBUG)
-        logger_formatado.set_verbosidade("NORMAL")  # Mude para MINIMAL se quiser menos info
+        logger_formatado.set_verbosidade("NORMAL")  # Logs organizados por estratégia
         
         # Enviar notificação de ativação
         self.notificar_ativacao()
