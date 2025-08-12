@@ -1151,7 +1151,6 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # 1ª PRIORIDADE: ALAVANCAGEM (odds 1.20-1.40)
                 analise_alavancagem = self.analisar_alavancagem(oportunidade, odds_data)
                 if analise_alavancagem['alavancagem_aprovada']:
-                    print(f"🚀 Analisando ALAVANCAGEM: {jogador1}")
                     
                     # Validar timing específico para alavancagem
                     timing_aprovado = self.validar_timing_inteligente(
@@ -1206,7 +1205,6 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # 2ª PRIORIDADE: INVERTIDA (odds flexíveis)
                 analise_mental = self.analisar_vantagem_mental(oportunidade, odds_data)
                 if analise_mental['inverter_aposta']:
-                    print(f"🧠 Analisando INVERTIDA: {jogador1}")
                     
                     # ESTRATÉGIA INVERTIDA: Apostar no adversário
                     sinal_invertido = self.preparar_sinal_invertido(analise_mental, oportunidade, odds_data)
@@ -1249,7 +1247,6 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                         continue  # Sucesso - pular estratégia tradicional
                 
                 # 3ª PRIORIDADE: TRADICIONAL (odds 1.8-2.2 + filtros rigorosos)
-                print(f"🔥 Analisando TRADICIONAL: {jogador1}")
                 
                 # FILTRO CRÍTICO: Validar odds entre 1.8 e 2.2 (só para tradicional)
                 odds_valida, odd_valor = self.validar_filtros_odds(oportunidade, odds_data)
@@ -1650,23 +1647,14 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             placar = oportunidade.get('placar', '')
             jogador = oportunidade.get('jogador', '')
             
-            # Debug: Log dos dados de entrada
-            print(f"🔍 ALAVANCAGEM DEBUG - {jogador}:")
-            print(f"   Placar: {placar}")
-            print(f"   Momentum: {oportunidade.get('momentum_score', 'N/A')}%")
-            print(f"   Odds: J1={odds_data.get('jogador1_odd', 'N/A')}, J2={odds_data.get('jogador2_odd', 'N/A')}")
-            print(f"   Tipo: {oportunidade.get('tipo', 'N/A')}")
-            
             # Usar o detector de alavancagem
             analise = self.detector_alavancagem.analisar_oportunidade_alavancagem(
                 oportunidade, placar, odds_data
             )
             
-            # Debug: Log do resultado
+            # Log apenas resultado final (não debug detalhado)
             if analise['alavancagem_aprovada']:
                 print(f"✅ ALAVANCAGEM APROVADA: {analise.get('justificativa', 'N/A')}")
-            else:
-                print(f"❌ ALAVANCAGEM REJEITADA: {analise.get('motivo', 'N/A')}")
             
             return analise
             
@@ -2061,19 +2049,14 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     tempo_espera = 90  # Reduzido de 120 para 90 segundos
                 elif requests_por_hora > 2500:  # 69% do limite
                     logger_formatado.log_aviso("ATENÇÃO: Aproximando do limite da API")
-                    tempo_espera = 60  # Reduzido de 90 para 60 segundos
+                    tempo_espera = 75  # Aumentado para reduzir rate limit
                 elif requests_por_hora > 2000:  # 56% do limite
-                    logger_formatado.log_debug("MODERADO: Monitorando uso da API")
-                    tempo_espera = 50  # Reduzido de 75 para 50 segundos
+                    tempo_espera = 65  # Aumentado para reduzir rate limit
                 else:
-                    tempo_espera = 45  # Reduzido de 60 para 45 segundos - MAIS RÁPIDO!
+                    tempo_espera = 55  # Aumentado para reduzir rate limit
                 
-                logger_formatado.log_debug(f"Próxima verificação em {tempo_espera}s...")
-                
-                for i in range(tempo_espera):
-                    if not self.running:
-                        break
-                    time.sleep(1)
+                # Sleep direto para reduzir logs e rate limit
+                time.sleep(tempo_espera)
                 
             except KeyboardInterrupt:
                 # Ctrl+C já é tratado pelo signal_handler

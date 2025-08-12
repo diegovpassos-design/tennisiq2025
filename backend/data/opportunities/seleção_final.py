@@ -90,7 +90,6 @@ def buscar_odds_evento(event_id, api_key, base_url):
                             try:
                                 float(home_odd)
                                 float(away_odd)
-                                print(f"✅ Odds encontradas (13_1): Casa={home_odd}, Visitante={away_odd}")
                                 return {
                                     'jogador1_odd': home_odd,
                                     'jogador2_odd': away_odd
@@ -109,7 +108,6 @@ def buscar_odds_evento(event_id, api_key, base_url):
                             if home_odd != '-' and away_odd != '-':
                                 float(home_odd)
                                 float(away_odd)
-                                print(f"✅ Odds encontradas (market {market_id}): Casa={home_odd}, Visitante={away_odd}")
                                 return {
                                     'jogador1_odd': home_odd,
                                     'jogador2_odd': away_odd
