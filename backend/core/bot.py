@@ -1246,6 +1246,17 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 
                 # ESTRATÉGIA DE ALAVANCAGEM: Verificar se atende aos critérios
                 if analise_alavancagem['alavancagem_aprovada']:
+                    # Validar timing específico para alavancagem
+                    timing_aprovado = self.validar_timing_inteligente(
+                        oportunidade, 
+                        'ALAVANCAGEM', 
+                        momentum_score=analise_alavancagem.get('momentum_score', 0)
+                    )
+                    
+                    if not timing_aprovado:
+                        print(f"❌ Alavancagem rejeitada por timing inadequado")
+                        continue
+                    
                     # ESTRATÉGIA ALAVANCAGEM: Apostar no jogador da oportunidade
                     sinal_alavancagem = self.preparar_sinal_alavancagem(analise_alavancagem, oportunidade, odds_data)
                     if self.enviar_sinal_alavancagem(sinal_alavancagem):
@@ -1493,8 +1504,39 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         agora = datetime.now(timezone(timedelta(hours=-3)))
         hora_atual = agora.hour
         
+        # ESTRATÉGIA ALAVANCAGEM: Timing otimizado para 2º set
+        if estrategia_tipo == 'ALAVANCAGEM':
+            contexto = self.identificar_contexto_partida(oportunidade)
+            momentum_score = oportunidade.get('momentum', 0)
+            
+            # Alavancagem é mais eficaz no início/meio do 2º set
+            # Timing muito flexível devido à especificidade da situação
+            
+            # Situação ideal: início/meio do 2º set (timing override)
+            if '2º set' in contexto and momentum_score >= 65:
+                print(f"🚀 Alavancagem 2º set: Momentum {momentum_score}% - Timing override")
+                return True
+            
+            # 1º set quase terminando também é válido
+            if '1º set' in contexto and momentum_score >= 70:
+                print(f"🎾 Alavancagem 1º set final: Momentum {momentum_score}% aprovado")
+                return True
+            
+            # Horário normal sempre liberado
+            if 6 <= hora_atual <= 23:
+                return True
+            
+            # Madrugada liberada se momentum alto (situação específica)
+            if 0 <= hora_atual <= 6 and momentum_score >= 70:
+                print(f"🌙 Alavancagem madrugada: Momentum {momentum_score}% suficiente")
+                return True
+            
+            # Madrugada com momentum baixo
+            print(f"❌ Alavancagem madrugada bloqueada: Momentum {momentum_score}% < 70%")
+            return False
+
         # ESTRATÉGIA INVERTIDA: Timing mais flexível
-        if estrategia_tipo == 'INVERTIDA':
+        elif estrategia_tipo == 'INVERTIDA':
             contexto = self.identificar_contexto_partida(oportunidade)
             
             # Situações críticas ignoram timing
@@ -1556,25 +1598,43 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         return 2.1
     
     def identificar_contexto_partida(self, oportunidade):
-        """Identifica o contexto da partida para análise mental"""
+        """Identifica o contexto da partida para análise mental e timing"""
         placar = oportunidade.get('placar', '')
         fase = oportunidade.get('fase_timing', '')
         
         contexto = []
         
-        # Detectar 3º set
+        # Detectar qual set está sendo jogado baseado no placar
+        if placar:
+            # Analisar estrutura do placar para identificar sets
+            sets_jogados = placar.count('-') + placar.count(':')
+            
+            # 1º set em andamento (sem sets finalizados)
+            if sets_jogados <= 1 and not any(x in placar for x in ['6-', '7-']):
+                contexto.append('1º set')
+            
+            # 2º set em andamento (1 set finalizado)
+            elif '6-' in placar or '7-' in placar:
+                # Verificar se há 2 sets completos (seria 3º set)
+                sets_completos = placar.count('6-') + placar.count('7-')
+                if sets_completos == 1:
+                    contexto.append('2º set')
+                elif sets_completos >= 2:
+                    contexto.append('3º set')
+        
+        # Detectar 3º set por outros indicadores
         if '0-0' in placar and len(placar.split(',')) == 3:
             contexto.append('3º set')
         
         # Detectar tie-break
-        if '7-6' in placar or '6-7' in placar:
-            contexto.append('pós tie-break')
+        if '7-6' in placar or '6-7' in placar or 'tie-break' in fase.lower():
+            contexto.append('tie-break')
         
         # Detectar sets empatados
         if '1-1' in placar or 'empatado' in fase.lower():
             contexto.append('sets empatados')
         
-        return ', '.join(contexto) if contexto else 'normal'
+        return ', '.join(contexto) if contexto else 'início da partida'
     
     def analisar_alavancagem(self, oportunidade, odds_data):
         """
