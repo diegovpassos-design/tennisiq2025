@@ -38,49 +38,69 @@ class DetectorAlavancagem:
             oponente = oportunidade_data.get('oponente', '')
             tipo_oportunidade = oportunidade_data.get('tipo', '')  # HOME ou AWAY
             
+            print(f"🔍 DETECTOR ALAVANCAGEM - Analisando {jogador_oportunidade}:")
+            
             # Obter odd do jogador da oportunidade
             if tipo_oportunidade == 'HOME':
                 odd_jogador = self._converter_odd_float(odds_data.get('jogador1_odd', 0))
+                print(f"   Tipo: HOME, Odd: {odd_jogador}")
             else:
                 odd_jogador = self._converter_odd_float(odds_data.get('jogador2_odd', 0))
+                print(f"   Tipo: AWAY, Odd: {odd_jogador}")
             
             # 1. Verificar se a odd está no range correto (1.20 - 1.40)
+            print(f"   1. Verificando odds: {odd_jogador} (range: {self.odd_minima}-{self.odd_maxima})")
             if not (self.odd_minima <= odd_jogador <= self.odd_maxima):
+                print(f"   ❌ FALHOU: Odd {odd_jogador} fora do range {self.odd_minima}-{self.odd_maxima}")
                 return {
                     'alavancagem_aprovada': False,
                     'motivo': f"Odd {odd_jogador} fora do range 1.20-1.40"
                 }
+            print(f"   ✅ Odd aprovada: {odd_jogador}")
             
             # 2. Verificar se o primeiro set terminou
+            print(f"   2. Verificando primeiro set: '{placar}'")
             if not self._primeiro_set_terminou(placar):
+                print(f"   ❌ FALHOU: Primeiro set ainda não terminou")
                 return {
                     'alavancagem_aprovada': False,
                     'motivo': "Primeiro set ainda não terminou"
                 }
+            print(f"   ✅ Primeiro set terminou")
             
             # 3. Verificar se o jogador da oportunidade ganhou o primeiro set
+            print(f"   3. Verificando vitória no 1º set (tipo: {tipo_oportunidade})")
             if not self._jogador_ganhou_primeiro_set(placar, tipo_oportunidade):
+                print(f"   ❌ FALHOU: Jogador não ganhou o primeiro set")
                 return {
                     'alavancagem_aprovada': False,
                     'motivo': "Jogador não ganhou o primeiro set"
                 }
+            print(f"   ✅ Jogador ganhou o 1º set")
             
             # 4. Verificar se está ganhando o segundo set
+            print(f"   4. Verificando liderança no 2º set")
             if not self._esta_ganhando_segundo_set(placar, tipo_oportunidade):
+                print(f"   ❌ FALHOU: Não está ganhando o segundo set")
                 return {
                     'alavancagem_aprovada': False,
                     'motivo': "Não está ganhando o segundo set"
                 }
+            print(f"   ✅ Está ganhando o 2º set")
             
             # 5. Verificar se é melhor estatisticamente (usando momentum da oportunidade)
             momentum_jogador = oportunidade_data.get('momentum_score', 0)
+            print(f"   5. Verificando momentum: {momentum_jogador}% (mínimo: {self.momentum_minimo}%)")
             if momentum_jogador < self.momentum_minimo:
+                print(f"   ❌ FALHOU: Momentum {momentum_jogador}% < {self.momentum_minimo}%")
                 return {
                     'alavancagem_aprovada': False,
                     'motivo': f"Momentum {momentum_jogador}% < {self.momentum_minimo}% (não é estatisticamente superior)"
                 }
+            print(f"   ✅ Momentum aprovado: {momentum_jogador}%")
             
             # Se passou em todos os critérios
+            print(f"   🚀 TODOS OS CRITÉRIOS ATENDIDOS!")
             return {
                 'alavancagem_aprovada': True,
                 'jogador_alvo': jogador_oportunidade,

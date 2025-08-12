@@ -1146,64 +1146,68 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 else:
                     odds_data = {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
                 
-                # NOVA ANÁLISE: Vantagem Mental (Estratégia Invertida) - ANTES da validação de odds
-                analise_mental = self.analisar_vantagem_mental(oportunidade, odds_data)
+                # EXECUTAR ESTRATÉGIAS POR PRIORIDADE (sem conflito de odds)
                 
-                # NOVA ANÁLISE: Alavancagem (Estratégia de Alavancagem)
+                # 1ª PRIORIDADE: ALAVANCAGEM (odds 1.20-1.40)
                 analise_alavancagem = self.analisar_alavancagem(oportunidade, odds_data)
-                
-                # FILTRO CRÍTICO: Validar odds entre 1.8 e 2.2
-                odds_valida, odd_valor = self.validar_filtros_odds(oportunidade, odds_data)
-                if not odds_valida:
-                    print(f"❌ Oportunidade rejeitada pelo filtro de odds: {jogador1}")
+                if analise_alavancagem['alavancagem_aprovada']:
+                    print(f"🚀 Analisando ALAVANCAGEM: {jogador1}")
                     
-                    # Coletar estatísticas reais para o dashboard
-                    stats_reais = self.coletar_estatisticas_reais(event_id)
-                    
-                    # Calcular EV se não estiver disponível
-                    ev_partida = oportunidade.get('ev', 0)
-                    if ev_partida == 0:
-                        # Calcular EV usando momentum e odds disponíveis
-                        momentum = oportunidade.get('momentum', 0)
-                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
-                        
-                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
-                        try:
-                            odd_valor = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
-                        except (ValueError, TypeError):
-                            odd_valor = 0
-                            
-                        if momentum > 0 and odd_valor > 1:
-                            try:
-                                probabilidade = momentum / 100
-                                ev_partida = (probabilidade * odd_valor) - 1
-                                # Debug suprimido: print(f"🧮 EV calculado: MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
-                            except:
-                                ev_partida = 0
-                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV: MS={momentum}, Odd={odd_valor_raw}")
-                        else:
-                            # Debug suprimido: print(f"⚠️ EV não calculado: MS={momentum}, Odd={odd_valor_raw} (inválida)")
-                            ev_partida = 0
-                    
-                    # Log partida rejeitada por odds
-                    dashboard_logger.log_partida_analisada(
-                        jogador1=jogador1,
-                        jogador2=oportunidade.get('oponente', 'N/A'),
-                        placar=oportunidade.get('placar', 'N/A'),
-                        odds1=odds_data.get('jogador1_odd', 0),
-                        odds2=odds_data.get('jogador2_odd', 0),
-                        ev=ev_partida,
-                        momentum_score=oportunidade.get('momentum', 0),
-                        timing_priority=oportunidade.get('prioridade_timing', 0),
-                        mental_score=analise_mental.get('score_mental', 0),
-                        decisao='REJEITADO',
-                        motivo='Odds fora do range 1.8-2.2',
-                        stats_jogador1=stats_reais.get('stats_jogador1', {}),
-                        stats_jogador2=stats_reais.get('stats_jogador2', {})
+                    # Validar timing específico para alavancagem
+                    timing_aprovado = self.validar_timing_inteligente(
+                        oportunidade, 
+                        'ALAVANCAGEM', 
+                        momentum_score=analise_alavancagem.get('momentum_score', 0)
                     )
-                    continue
+                    
+                    if not timing_aprovado:
+                        print(f"❌ Alavancagem rejeitada por timing inadequado")
+                    else:
+                        # ESTRATÉGIA ALAVANCAGEM: Apostar no jogador da oportunidade
+                        sinal_alavancagem = self.preparar_sinal_alavancagem(analise_alavancagem, oportunidade, odds_data)
+                        if self.enviar_sinal_alavancagem(sinal_alavancagem):
+                            self.sinais_enviados.add(sinal_id)
+                            self.partidas_processadas.add(partida_unica_id)
+                            contador_sinais += 1
+                            print(f"🚀 Sinal ALAVANCAGEM enviado: {analise_alavancagem['jogador_alvo']}")
+                            
+                            # Log sinal alavancagem gerado
+                            dashboard_logger.log_sinal_gerado(
+                                tipo='ALAVANCAGEM',
+                                target=analise_alavancagem['jogador_alvo'],
+                                odd=analise_alavancagem['odd_alvo'],
+                                ev=analise_alavancagem['ev_estimado'],
+                                confianca=analise_alavancagem['confianca'],
+                                mental_score=0,  # Alavancagem não usa score mental
+                                fatores_mentais=f"Momentum: {analise_alavancagem['momentum_score']}%"
+                            )
+                            
+                            # Coletar estatísticas reais para o dashboard
+                            stats_reais = self.coletar_estatisticas_reais(event_id)
+                            
+                            # Log partida analisada com sucesso
+                            dashboard_logger.log_partida_analisada(
+                                jogador1=jogador1,
+                                jogador2=oportunidade.get('oponente', 'N/A'),
+                                placar=oportunidade.get('placar', 'N/A'),
+                                odds1=odds_data.get('jogador1_odd', 0),
+                                odds2=odds_data.get('jogador2_odd', 0),
+                                ev=analise_alavancagem['ev_estimado'],
+                                momentum_score=analise_alavancagem['momentum_score'],
+                                timing_priority=oportunidade.get('prioridade_timing', 0),
+                                mental_score=0,
+                                decisao='SINAL_ALAVANCAGEM',
+                                motivo=f"Critérios de alavancagem atendidos: {analise_alavancagem['justificativa']}",
+                                stats_jogador1=stats_reais.get('stats_jogador1', {}),
+                                stats_jogador2=stats_reais.get('stats_jogador2', {})
+                            )
+                            continue  # Sucesso - pular outras estratégias
                 
+                # 2ª PRIORIDADE: INVERTIDA (odds flexíveis)
+                analise_mental = self.analisar_vantagem_mental(oportunidade, odds_data)
                 if analise_mental['inverter_aposta']:
+                    print(f"🧠 Analisando INVERTIDA: {jogador1}")
+                    
                     # ESTRATÉGIA INVERTIDA: Apostar no adversário
                     sinal_invertido = self.preparar_sinal_invertido(analise_mental, oportunidade, odds_data)
                     if self.enviar_sinal_invertido(sinal_invertido):
@@ -1242,60 +1246,61 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             stats_jogador1=stats_reais.get('stats_jogador1', {}),
                             stats_jogador2=stats_reais.get('stats_jogador2', {})
                         )
-                        continue
+                        continue  # Sucesso - pular estratégia tradicional
                 
-                # ESTRATÉGIA DE ALAVANCAGEM: Verificar se atende aos critérios
-                if analise_alavancagem['alavancagem_aprovada']:
-                    # Validar timing específico para alavancagem
-                    timing_aprovado = self.validar_timing_inteligente(
-                        oportunidade, 
-                        'ALAVANCAGEM', 
-                        momentum_score=analise_alavancagem.get('momentum_score', 0)
+                # 3ª PRIORIDADE: TRADICIONAL (odds 1.8-2.2 + filtros rigorosos)
+                print(f"🔥 Analisando TRADICIONAL: {jogador1}")
+                
+                # FILTRO CRÍTICO: Validar odds entre 1.8 e 2.2 (só para tradicional)
+                odds_valida, odd_valor = self.validar_filtros_odds(oportunidade, odds_data)
+                if not odds_valida:
+                    print(f"❌ Estratégia tradicional rejeitada pelo filtro de odds: {jogador1}")
+                    
+                    # Coletar estatísticas reais para o dashboard
+                    stats_reais = self.coletar_estatisticas_reais(event_id)
+                    
+                    # Calcular EV se não estiver disponível
+                    ev_partida = oportunidade.get('ev', 0)
+                    if ev_partida == 0:
+                        # Calcular EV usando momentum e odds disponíveis
+                        momentum = oportunidade.get('momentum', 0)
+                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
+                        
+                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
+                        try:
+                            odd_valor = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
+                        except (ValueError, TypeError):
+                            odd_valor = 0
+                            
+                        if momentum > 0 and odd_valor > 1:
+                            try:
+                                probabilidade = momentum / 100
+                                ev_partida = (probabilidade * odd_valor) - 1
+                                # Debug suprimido: print(f"🧮 EV calculado: MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
+                            except:
+                                ev_partida = 0
+                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV: MS={momentum}, Odd={odd_valor_raw}")
+                        else:
+                            # Debug suprimido: print(f"⚠️ EV não calculado: MS={momentum}, Odd={odd_valor_raw} (inválida)")
+                            ev_partida = 0
+                    
+                    # Log partida rejeitada por odds (tradicional)
+                    dashboard_logger.log_partida_analisada(
+                        jogador1=jogador1,
+                        jogador2=oportunidade.get('oponente', 'N/A'),
+                        placar=oportunidade.get('placar', 'N/A'),
+                        odds1=odds_data.get('jogador1_odd', 0),
+                        odds2=odds_data.get('jogador2_odd', 0),
+                        ev=ev_partida,
+                        momentum_score=oportunidade.get('momentum', 0),
+                        timing_priority=oportunidade.get('prioridade_timing', 0),
+                        mental_score=analise_mental.get('score_mental', 0),
+                        decisao='REJEITADO',
+                        motivo='Odds fora do range 1.8-2.2 (estratégia tradicional)',
+                        stats_jogador1=stats_reais.get('stats_jogador1', {}),
+                        stats_jogador2=stats_reais.get('stats_jogador2', {})
                     )
-                    
-                    if not timing_aprovado:
-                        print(f"❌ Alavancagem rejeitada por timing inadequado")
-                        continue
-                    
-                    # ESTRATÉGIA ALAVANCAGEM: Apostar no jogador da oportunidade
-                    sinal_alavancagem = self.preparar_sinal_alavancagem(analise_alavancagem, oportunidade, odds_data)
-                    if self.enviar_sinal_alavancagem(sinal_alavancagem):
-                        self.sinais_enviados.add(sinal_id)
-                        self.partidas_processadas.add(partida_unica_id)
-                        contador_sinais += 1
-                        print(f"🚀 Sinal ALAVANCAGEM enviado: {analise_alavancagem['jogador_alvo']}")
-                        
-                        # Log sinal alavancagem gerado
-                        dashboard_logger.log_sinal_gerado(
-                            tipo='ALAVANCAGEM',
-                            target=analise_alavancagem['jogador_alvo'],
-                            odd=analise_alavancagem['odd_alvo'],
-                            ev=analise_alavancagem['ev_estimado'],
-                            confianca=analise_alavancagem['confianca'],
-                            mental_score=0,  # Alavancagem não usa score mental
-                            fatores_mentais=f"Momentum: {analise_alavancagem['momentum_score']}%"
-                        )
-                        
-                        # Coletar estatísticas reais para o dashboard
-                        stats_reais = self.coletar_estatisticas_reais(event_id)
-                        
-                        # Log partida analisada com sucesso
-                        dashboard_logger.log_partida_analisada(
-                            jogador1=jogador1,
-                            jogador2=oportunidade.get('oponente', 'N/A'),
-                            placar=oportunidade.get('placar', 'N/A'),
-                            odds1=odds_data.get('jogador1_odd', 0),
-                            odds2=odds_data.get('jogador2_odd', 0),
-                            ev=analise_alavancagem['ev_estimado'],
-                            momentum_score=analise_alavancagem['momentum_score'],
-                            timing_priority=oportunidade.get('prioridade_timing', 0),
-                            mental_score=0,
-                            decisao='SINAL_ALAVANCAGEM',
-                            motivo=f"Critérios de alavancagem atendidos: {analise_alavancagem['justificativa']}",
-                            stats_jogador1=stats_reais.get('stats_jogador1', {}),
-                            stats_jogador2=stats_reais.get('stats_jogador2', {})
-                        )
-                        continue
+                    continue
                 
                 # ESTRATÉGIA TRADICIONAL: Aplicar novos filtros rígidos
                 if not self.aplicar_filtros_rigidos(oportunidade):
@@ -1643,11 +1648,25 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         try:
             # Obter placar da partida
             placar = oportunidade.get('placar', '')
+            jogador = oportunidade.get('jogador', '')
+            
+            # Debug: Log dos dados de entrada
+            print(f"🔍 ALAVANCAGEM DEBUG - {jogador}:")
+            print(f"   Placar: {placar}")
+            print(f"   Momentum: {oportunidade.get('momentum_score', 'N/A')}%")
+            print(f"   Odds: J1={odds_data.get('jogador1_odd', 'N/A')}, J2={odds_data.get('jogador2_odd', 'N/A')}")
+            print(f"   Tipo: {oportunidade.get('tipo', 'N/A')}")
             
             # Usar o detector de alavancagem
             analise = self.detector_alavancagem.analisar_oportunidade_alavancagem(
                 oportunidade, placar, odds_data
             )
+            
+            # Debug: Log do resultado
+            if analise['alavancagem_aprovada']:
+                print(f"✅ ALAVANCAGEM APROVADA: {analise.get('justificativa', 'N/A')}")
+            else:
+                print(f"❌ ALAVANCAGEM REJEITADA: {analise.get('motivo', 'N/A')}")
             
             return analise
             
