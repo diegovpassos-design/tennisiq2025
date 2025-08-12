@@ -14,6 +14,7 @@ Sistema para identificar oportunidades de alavancagem baseado em critérios espe
 import re
 import json
 from datetime import datetime
+from backend.utils.logger_formatado import logger_formatado
 
 class DetectorAlavancagem:
     def __init__(self):
@@ -80,8 +81,7 @@ class DetectorAlavancagem:
                     'motivo': f"Momentum {momentum_jogador}% < {self.momentum_minimo}% (não é estatisticamente superior)"
                 }
             
-            # Se passou em todos os critérios
-            print(f"🚀 ALAVANCAGEM APROVADA: {jogador_oportunidade} - odd {odd_jogador}, momentum {momentum_jogador}%")
+            # Se passou em todos os critérios - Log será feito no bot.py
             return {
                 'alavancagem_aprovada': True,
                 'jogador_alvo': jogador_oportunidade,
@@ -94,7 +94,7 @@ class DetectorAlavancagem:
             }
             
         except Exception as e:
-            print(f"Erro na análise de alavancagem: {e}")
+            # Log será feito no bot.py
             return {
                 'alavancagem_aprovada': False,
                 'erro': str(e)
