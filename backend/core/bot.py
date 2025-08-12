@@ -724,7 +724,7 @@ class TennisIQBot:
         bet365_link = bet365_manager.generate_link(event_id)
         
         # Montar sinal básico
-        sinal = f"""🎾 TennisIQ - Sinal
+        sinal = f"""🎾 TennisIQ - Sinal - Tradicional 🔥
 
 {oponente} vs {jogador_alvo}
 ⏰ {horario}
