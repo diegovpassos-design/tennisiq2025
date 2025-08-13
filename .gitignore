@@ -3,6 +3,26 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Arquivos de teste e debug
+*test*.py
+*debug*.py
+*investigar*.py
+*verificar*.py
+*testar*.py
+*demonstr*.py
+*deploy_*.py
+*aplicar_*.py
+*corrigir_*.py
+*implementar_*.py
+*monitorar*.py
+*analisar*.py
+*detector*.py
+*otimizar*.py
+
+# Logs desnecessários
+deployment_logs_*.log
+*.log
+
 # C extensions
 *.so
 

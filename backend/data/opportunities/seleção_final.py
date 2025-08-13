@@ -392,10 +392,9 @@ def analisar_ev_partidas():
         'MOMENTUM_SCORE_MINIMO': 40,  # MS ≥ 40% (RELAXADO)
         'WIN_1ST_SERVE_MINIMO': 50,   # W1S ≥ 50% (RELAXADO)
         'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
-        'TEMPO_MINIMO': 20,           # Tempo ≥ 20min (MUITO RELAXADO para alavancagem)
         'ODDS_MIN': 1.15,             # Odds mínima (relaxado)
         'ODDS_MAX': 1.60,             # Odds máxima para alavancagem
-        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO)
+        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO - aceita 1º set mid, 2º set early/mid/late, 3º set)
         'NOME': 'ALAVANCAGEM'
     }
 
@@ -406,10 +405,9 @@ def analisar_ev_partidas():
         'MOMENTUM_SCORE_MINIMO': 60,  # MS ≥ 60% (importante para mental)
         'WIN_1ST_SERVE_MINIMO': 60,   # W1S ≥ 60% (importante para mental)
         'DOUBLE_FAULTS_MAXIMO': 4,    # DF ≤ 4 (rigoroso para mental)
-        'TEMPO_MINIMO': 35,           # Tempo ≥ 35min (moderado para mental)
         'ODDS_MIN': 1.20,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima para vantagem mental
-        'PRIORIDADE_MINIMA': 3,       # Prioridade ≥ 3
+        'PRIORIDADE_MINIMA': 3,       # Prioridade ≥ 3 (MODERADO - aceita 2º set early/mid/late, 3º set)
         'NOME': 'VANTAGEM_MENTAL'
     }
 
@@ -420,10 +418,9 @@ def analisar_ev_partidas():
         'MOMENTUM_SCORE_MINIMO': 45,  # MS ≥ 45% (MUITO RELAXADO)
         'WIN_1ST_SERVE_MINIMO': 45,   # W1S ≥ 45% (MUITO RELAXADO)
         'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
-        'TEMPO_MINIMO': 30,           # Tempo ≥ 30min (relaxado para 3º sets)
         'ODDS_MIN': 1.20,             # Odds mínima
         'ODDS_MAX': 4.50,             # Odds máxima muito relaxada
-        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2
+        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO - aceita qualquer timing, especialmente 3º sets)
         'NOME': 'INVERTIDA'
     }
     
@@ -707,13 +704,33 @@ def analisar_ev_partidas():
             dados_jogador = buscar_dados_jogador(jogador_info['nome'], event_id)
             time.sleep(0.2)  # Rate limiting otimizado - reduzido de 0.5 para 0.2
             
-            # 🚨 FILTRO ELIMINATÓRIO ABSOLUTO: TIMING OBRIGATÓRIO
-            # Usar critério mais relaxado para permitir mais partidas
-            timing_aprovado = partida.get('prioridade', 0) >= 2  # Prioridade ≥ 2 (relaxado)
+            # 🚨 FILTRO TIMING DE SETS - INDEPENDENTE PARA CADA ESTRATÉGIA
+            # Primeiro determinar qual estratégia será usada baseada no EV e situação
+            prioridade_timing = partida.get('prioridade', 0)
+            fase_jogo = partida.get('fase', '')
+            is_terceiro_set = '3set' in fase_jogo
+            
+            if is_terceiro_set:
+                # 3º set: usar critério invertido (mais relaxado)
+                timing_aprovado = prioridade_timing >= CRITERIOS_INVERTIDOS['PRIORIDADE_MINIMA']
+                estrategia_timing = "INVERTIDA (3º set)"
+            elif ev_principal >= 0.5:  
+                # EV alto: usar critério alavancagem
+                timing_aprovado = prioridade_timing >= CRITERIOS_ALAVANCAGEM['PRIORIDADE_MINIMA']
+                estrategia_timing = "ALAVANCAGEM (EV alto)"
+            elif ev_principal >= 0.15:  
+                # EV moderado: usar critério vantagem mental
+                timing_aprovado = prioridade_timing >= CRITERIOS_VANTAGEM_MENTAL['PRIORIDADE_MINIMA']
+                estrategia_timing = "VANTAGEM MENTAL (EV moderado)"
+            else:
+                # EV baixo: usar critério rigoroso
+                timing_aprovado = prioridade_timing >= 4  # Prioridade 4+ (rigoroso)
+                estrategia_timing = "RIGOROSA (EV baixo)"
             
             if not timing_aprovado:
-                print(f"   🚨 ELIMINADO POR TIMING INSUFICIENTE - Prioridade: {partida.get('prioridade', 0)}/5")
-                print(f"      ❌ FILTRO ELIMINATÓRIO: Só aceita timing ≥ 2")
+                print(f"   🚨 ELIMINADO POR TIMING DE SETS - {estrategia_timing}")
+                print(f"      ❌ Prioridade: {prioridade_timing}/5, Fase: {fase_jogo}")
+                print(f"      ❌ Filtro timing específico para {estrategia_timing}")
                 continue
             
             # FILTROS ANTI-PROBLEMAS ESPECÍFICOS
@@ -765,7 +782,6 @@ def analisar_ev_partidas():
                     'DOUBLE_FAULTS_MAXIMO': 3,
                     'ODDS_MIN': 1.20,
                     'ODDS_MAX': 3.50,
-                    'TEMPO_MINIMO': 45,
                     'PRIORIDADE_MINIMA': 4
                 }
                 estrategia_tipo = "RIGOROSA (situação normal)"
@@ -815,14 +831,6 @@ def analisar_ev_partidas():
             except (ValueError, TypeError):
                 filtros_rejeitados.append(f"W1S: dados inválidos ❌")
             
-            # 🕒 FILTRO TEMPO INDEPENDENTE PARA CADA ESTRATÉGIA
-            # Simular tempo restante da partida (normalmente viria da API)
-            tempo_estimado = 60 - (partida.get('prioridade', 0) * 10)  # Estimativa baseada na prioridade
-            if tempo_estimado >= criterios['TEMPO_MINIMO']:
-                filtros_aprovados.append(f"TEMPO: {tempo_estimado}min ✅ (min {criterios['TEMPO_MINIMO']}min - {estrategia_tipo})")
-            else:
-                filtros_rejeitados.append(f"TEMPO: {tempo_estimado}min ❌ (min {criterios['TEMPO_MINIMO']}min - {estrategia_tipo})")
-            
             # ⚠️ FILTRO ODDS INDEPENDENTE PARA CADA ESTRATÉGIA (se disponível)
             # Determinar a odd específica do jogador baseado no tipo
             if jogador_info['tipo'] == 'HOME':
@@ -842,8 +850,8 @@ def analisar_ev_partidas():
             else:
                 filtros_rejeitados.append(f"ODDS: N/A ❌ (não disponível)")
             
-            # Se passou em TODOS os filtros (agora são 7 filtros independentes)
-            if len(filtros_aprovados) == 7 and len(filtros_rejeitados) == 0:
+            # Se passou em TODOS os filtros (agora são 6 filtros independentes: EV, MS, DF, W1S, ODDS, TIMING)
+            if len(filtros_aprovados) == 6 and len(filtros_rejeitados) == 0:
                 oportunidade = {
                     'partida_id': event_id,
                     'liga': partida['liga'],
