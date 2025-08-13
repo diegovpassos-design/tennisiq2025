@@ -387,13 +387,13 @@ def analisar_ev_partidas():
     
     # 🚀 ESTRATÉGIA ALAVANCAGEM - Para EVs muito altos (independente)
     CRITERIOS_ALAVANCAGEM = {
-        'EV_MINIMO': 0.5,             # EVs altos (0.5+)
+        'EV_MINIMO': 0.1,             # EVs baixos mas válidos (0.1+)
         'EV_MAXIMO': 50.0,            # Sem limite superior
-        'MOMENTUM_SCORE_MINIMO': 40,  # MS ≥ 40% (RELAXADO)
-        'WIN_1ST_SERVE_MINIMO': 50,   # W1S ≥ 50% (RELAXADO)
+        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (EQUILIBRADO)
+        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (EQUILIBRADO)
         'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
-        'ODDS_MIN': 1.15,             # Odds mínima (relaxado)
-        'ODDS_MAX': 1.60,             # Odds máxima para alavancagem
+        'ODDS_MIN': 1.20,             # Odds mínima
+        'ODDS_MAX': 1.50,             # Odds máxima para alavancagem
         'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO - aceita 1º set mid, 2º set early/mid/late, 3º set)
         'NOME': 'ALAVANCAGEM'
     }
@@ -405,7 +405,7 @@ def analisar_ev_partidas():
         'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (equilibrado)
         'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (equilibrado)
         'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5 (moderado)
-        'ODDS_MIN': 1.20,             # Odds mínima
+        'ODDS_MIN': 1.80,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima para tradicional
         'PRIORIDADE_MINIMA': 3,       # Prioridade ≥ 3 (MODERADO - aceita 2º set early/mid/late, 3º set)
         'NOME': 'TRADICIONAL'
@@ -415,11 +415,11 @@ def analisar_ev_partidas():
     CRITERIOS_INVERTIDOS = {
         'EV_MINIMO': 0.1,             # EV baixo (situações especiais)
         'EV_MAXIMO': 3.0,             # Permite EVs altos
-        'MOMENTUM_SCORE_MINIMO': 45,  # MS ≥ 45% (MUITO RELAXADO)
-        'WIN_1ST_SERVE_MINIMO': 45,   # W1S ≥ 45% (MUITO RELAXADO)
+        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (EQUILIBRADO)
+        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (EQUILIBRADO)
         'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
-        'ODDS_MIN': 1.20,             # Odds mínima
-        'ODDS_MAX': 4.50,             # Odds máxima muito relaxada
+        'ODDS_MIN': 1.80,             # Odds mínima
+        'ODDS_MAX': 2.50,             # Odds máxima
         'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO - aceita qualquer timing, especialmente 3º sets)
         'NOME': 'INVERTIDA'
     }
@@ -714,18 +714,18 @@ def analisar_ev_partidas():
                 # 3º set: usar critério invertido (mais relaxado)
                 timing_aprovado = prioridade_timing >= CRITERIOS_INVERTIDOS['PRIORIDADE_MINIMA']
                 estrategia_timing = "INVERTIDA (3º set)"
-            elif ev_principal >= 0.5:  
-                # EV alto: usar critério alavancagem
+            elif ev_principal >= 3.0:  
+                # EV muito alto: usar critério alavancagem
                 timing_aprovado = prioridade_timing >= CRITERIOS_ALAVANCAGEM['PRIORIDADE_MINIMA']
-                estrategia_timing = "ALAVANCAGEM (EV alto)"
+                estrategia_timing = "ALAVANCAGEM (EV muito alto)"
             elif ev_principal >= 0.15:  
                 # EV moderado: usar critério tradicional
                 timing_aprovado = prioridade_timing >= CRITERIOS_TRADICIONAL['PRIORIDADE_MINIMA']
                 estrategia_timing = "TRADICIONAL (EV moderado)"
             else:
-                # EV baixo: usar critério invertida (para cenários especiais)
-                timing_aprovado = prioridade_timing >= CRITERIOS_INVERTIDOS['PRIORIDADE_MINIMA']
-                estrategia_timing = "INVERTIDA (EV baixo especial)"
+                # EV baixo (0.1-0.14): usar critério alavancagem
+                timing_aprovado = prioridade_timing >= CRITERIOS_ALAVANCAGEM['PRIORIDADE_MINIMA']
+                estrategia_timing = "ALAVANCAGEM (EV baixo)"
             
             if not timing_aprovado:
                 print(f"   🚨 ELIMINADO POR TIMING DE SETS - {estrategia_timing}")
@@ -767,16 +767,16 @@ def analisar_ev_partidas():
                 criterios = CRITERIOS_INVERTIDOS
                 estrategia_tipo = "INVERTIDA (3º set/alta tensão)"
                 # Debug suprimido para logs mais limpos
-            elif ev_principal >= 0.5:  # Alavancagem para EVs altos
+            elif ev_principal >= 3.0:  # Alavancagem para EVs muito altos
                 criterios = CRITERIOS_ALAVANCAGEM
-                estrategia_tipo = "ALAVANCAGEM (EV alto)"
+                estrategia_tipo = "ALAVANCAGEM (EV muito alto)"
             elif ev_principal >= 0.15:  # Tradicional para EVs moderados
                 criterios = CRITERIOS_TRADICIONAL
                 estrategia_tipo = "TRADICIONAL (EV moderado)"
             else:
-                # EVs muito baixos: usar critérios da estratégia INVERTIDA (situações especiais)
-                criterios = CRITERIOS_INVERTIDOS
-                estrategia_tipo = "INVERTIDA (situação especial)"
+                # EVs baixos (0.1-0.14): usar ALAVANCAGEM
+                criterios = CRITERIOS_ALAVANCAGEM
+                estrategia_tipo = "ALAVANCAGEM (EV baixo)"
                 # Debug suprimido para logs mais limpos
             
             # APLICAR FILTROS BASEADOS NA ESTRATÉGIA ESCOLHIDA
@@ -912,16 +912,16 @@ def analisar_ev_partidas():
         print("💡 ESTRATÉGIAS INDEPENDENTES IMPLEMENTADAS:")
         print("\n� ALAVANCAGEM (EVs altos ≥0.5):")
         print(f"   • EV: +{CRITERIOS_ALAVANCAGEM['EV_MINIMO']} ou mais")
-        print(f"   • Momentum Score: {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}% (RELAXADO)")
-        print(f"   • Win 1st Serve: {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}% (RELAXADO)")
-        print("\n📊 TRADICIONAL (EVs moderados ≥0.15):")
+        print(f"   • Momentum Score: {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}% (EQUILIBRADO)")
+        print(f"   • Win 1st Serve: {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}% (EQUILIBRADO)")
+        print("\n📊 TRADICIONAL (EVs moderados 0.15-2.0):")
         print(f"   • EV: +{CRITERIOS_TRADICIONAL['EV_MINIMO']} a +{CRITERIOS_TRADICIONAL['EV_MAXIMO']}")
         print(f"   • Momentum Score: {CRITERIOS_TRADICIONAL['MOMENTUM_SCORE_MINIMO']}% (EQUILIBRADO)")
         print(f"   • Win 1st Serve: {CRITERIOS_TRADICIONAL['WIN_1ST_SERVE_MINIMO']}% (EQUILIBRADO)")
-        print("\n🔄 INVERTIDA (3º sets e alta tensão):")
-        print(f"   • EV: {CRITERIOS_INVERTIDOS['EV_MINIMO']} a +{CRITERIOS_INVERTIDOS['EV_MAXIMO']} (MUITO RELAXADO)")
-        print(f"   • Momentum Score: {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% a 85% (RELAXADO)")
-        print(f"   • Win 1st Serve: {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}% a 85% (RELAXADO)")
+        print("\n🔄 INVERTIDA (3º sets e alta tensão 0.1-3.0):")
+        print(f"   • EV: {CRITERIOS_INVERTIDOS['EV_MINIMO']} a +{CRITERIOS_INVERTIDOS['EV_MAXIMO']}")
+        print(f"   • Momentum Score: {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% (EQUILIBRADO)")
+        print(f"   • Win 1st Serve: {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}% (EQUILIBRADO)")
         print("   • 🎯 OBJETIVO: Aproveitar cenários de alta pressão e fadiga no 3º set")
     
     print(f"\n🕐 Última atualização: {datetime.now().strftime('%H:%M:%S')}")
