@@ -18,6 +18,13 @@ class LoggerProducaoUltra:
         self.ambiente = self._detectar_ambiente()
         self.ativo = self.ambiente == "railway"
         
+        # Sempre definir palavras_bloqueadas
+        self.palavras_bloqueadas = {
+            'stats', 'coletado', 'calculado', 'salvando', 'dashboard', 
+            'ev_', 'ms_', 'verificando', 'carregando', 'processando', 
+            'gerando', 'atualizando', 'inicializando', 'configurando', 'preparando'
+        }
+        
         if not self.ativo:
             print("🔧 Logger Ultra em modo LOCAL - Logging normal")
             return
@@ -43,14 +50,6 @@ class LoggerProducaoUltra:
             'strategy_success', 'telegram_sent', 'oportunidade_encontrada'
         }
         
-        # Filtro de conteúdo ultra-agressivo
-        self.palavras_bloqueadas = {
-            'stats', 'odds', 'coletado', 'calculado', 'analisando',
-            'salvando', 'dashboard', 'ev_', 'ms_', 'verificando',
-            'carregando', 'processando', 'gerando', 'atualizando',
-            'inicializando', 'configurando', 'preparando'
-        }
-        
         print("🚨 Logger Ultra ativado - SUPRESSÃO MÁXIMA para Railway")
     
     def _detectar_ambiente(self):
@@ -64,7 +63,14 @@ class LoggerProducaoUltra:
         # Logs críticos que SEMPRE passam
         if any(palavra in mensagem_lower for palavra in [
             'sinal enviado', 'telegram', 'error', 'critical', 'falha',
-            'alavancagem aprovada', '🎯 sinal', '📨', '❌ erro'
+            'alavancagem aprovada', '🎯 sinal', '📨', '❌ erro', '🚀 alavancagem'
+        ]):
+            return True
+        
+        # Logs de estratégias importantes (NOVO)
+        if any(palavra in mensagem_lower for palavra in [
+            'alavancagem:', 'aprovado', 'rejeitada', 'timing inadequado',
+            'odds fora do range', 'estrategia', 'ciclo:', 'analisando:'
         ]):
             return True
         
@@ -72,9 +78,9 @@ class LoggerProducaoUltra:
         if any(palavra in mensagem_lower for palavra in self.palavras_bloqueadas):
             return False
         
-        # Logs de estratégias importantes
+        # Logs de oportunidades
         if any(palavra in mensagem_lower for palavra in [
-            '🚀 alavancagem:', '✅ aprovado', 'oportunidade encontrada'
+            'oportunidade encontrada', 'partidas analisadas', 'próximo ciclo'
         ]):
             return True
         

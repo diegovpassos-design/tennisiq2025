@@ -39,8 +39,9 @@ try:
     from ..utils.rate_limiter import api_rate_limiter
     from ..utils.logger_producao import logger_prod
     from ..utils.logger_ultra import logger_ultra  # NOVO: Logger ultra-otimizado
+    from ..utils.logger_estrategias import logger_estrategias  # NOVO: Logger estratégias resumido
     RATE_LIMITER_DISPONIVEL = True
-    print("✅ Rate Limiter, Logger Produção e Logger Ultra carregados")
+    print("✅ Rate Limiter, Logger Produção, Logger Ultra e Logger Estratégias carregados")
 except ImportError:
     print("⚠️ Rate Limiter não disponível - usando fallback")
     class RateLimiterFallback:
@@ -241,6 +242,26 @@ class TennisIQBot:
         
         self.salvar_estatisticas()
         self.salvar_dados_relatorios()
+    
+    def rastrear_estrategia(self, estrategia, resultado, motivo, jogador):
+        """Rastreia análises de estratégias para resumo do ciclo"""
+        try:
+            # Cache para evitar logs repetidos da mesma partida
+            estrategias_testadas = getattr(self, '_estrategias_testadas_cache', {})
+            jogador_key = jogador.replace(' vs ', '_').replace(' ', '_')
+            
+            if jogador_key not in estrategias_testadas:
+                estrategias_testadas[jogador_key] = []
+            
+            estrategias_testadas[jogador_key].append((estrategia, resultado, motivo))
+            self._estrategias_testadas_cache = estrategias_testadas
+            
+            # Log resumido da partida se todas as estratégias foram testadas
+            if len(estrategias_testadas[jogador_key]) >= 2:  # Pelo menos 2 estratégias testadas
+                logger_estrategias.log_analise_partida(jogador, estrategias_testadas[jogador_key])
+                
+        except Exception as e:
+            print(f"⚠️ Erro ao rastrear estratégia: {e}")
     
     def gerar_mensagem_sequencia(self, resultado_status):
         """Gera mensagem motivacional baseada na sequência de greens."""
@@ -1241,6 +1262,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     
                     if not timing_aprovado:
                         logger_formatado.log_estrategia('alavancagem', 'rejeicao', 'Timing inadequado', jogador_alvo)
+                        self.rastrear_estrategia('alavancagem', 'rejeitada', 'Timing inadequado', jogador_alvo)
                     else:
                         # ESTRATÉGIA ALAVANCAGEM: Apostar no jogador da oportunidade
                         sinal_alavancagem = self.preparar_sinal_alavancagem(analise_alavancagem, oportunidade, odds_data)
@@ -1249,6 +1271,13 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             self.partidas_processadas.add(partida_unica_id)
                             contador_sinais += 1
                             logger_formatado.log_estrategia('alavancagem', 'sucesso', f"Sinal enviado", analise_alavancagem['jogador_alvo'])
+                            self.rastrear_estrategia('alavancagem', 'aprovada', 'Sinal enviado', jogador_alvo)
+                            
+                            # Log aprovação específica para visibilidade
+                            logger_estrategias.log_aprovacao_alavancagem(
+                                jogador_alvo, 
+                                analise_alavancagem.get('justificativa', 'N/A')
+                            )
                             
                             # Log sinal alavancagem gerado
                             dashboard_logger.log_sinal_gerado(
@@ -1296,6 +1325,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                         self.partidas_processadas.add(partida_unica_id)
                         contador_sinais += 1
                         logger_formatado.log_estrategia('invertida', 'sucesso', f"Sinal enviado", analise_mental['target_final'])
+                        self.rastrear_estrategia('invertida', 'aprovada', 'Sinal enviado', jogador_analise)
                         print(f"🧠 Sinal INVERTIDO enviado: {analise_mental['target_final']}")
                         
                         # Log sinal invertido gerado
@@ -1333,6 +1363,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     # Log de rejeição da estratégia invertida
                     motivo = analise_mental.get('motivo_rejeicao', 'Critérios de vantagem mental não atendidos')
                     logger_formatado.log_estrategia('invertida', 'rejeicao', motivo, jogador_analise)
+                    self.rastrear_estrategia('invertida', 'rejeitada', motivo, jogador_analise)
                 
                 # 3ª PRIORIDADE: TRADICIONAL (odds 1.8-2.2 + filtros rigorosos)
                 logger_formatado.log_estrategia('tradicional', 'analise', 'Validando filtros rigorosos', jogador1)
@@ -1341,6 +1372,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 odds_valida, odd_valor = self.validar_filtros_odds(oportunidade, odds_data)
                 if not odds_valida:
                     logger_formatado.log_estrategia('tradicional', 'rejeicao', f'Odds fora do range 1.8-2.2', jogador1)
+                    self.rastrear_estrategia('tradicional', 'rejeitada', 'Odds fora do range 1.8-2.2', jogador1)
                     
                     # Coletar estatísticas reais para o dashboard
                     stats_reais = self.coletar_estatisticas_reais(event_id)
@@ -1391,6 +1423,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # ESTRATÉGIA TRADICIONAL: Aplicar novos filtros rígidos
                 if not self.aplicar_filtros_rigidos(oportunidade):
                     logger_formatado.log_estrategia('tradicional', 'rejeicao', 'Rejeitada pelos filtros rígidos', jogador1)
+                    self.rastrear_estrategia('tradicional', 'rejeitada', 'Filtros rígidos', jogador1)
                     
                     # Coletar estatísticas reais para o dashboard
                     stats_reais = self.coletar_estatisticas_reais(event_id)
@@ -2055,6 +2088,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 logger_ultra.novo_ciclo()  # Reset para novo ciclo
                 logger_ultra.info(f"🔄 CICLO {contador_ciclos} - Verificando alavancagem")
                 
+                # Reset cache de estratégias para novo ciclo
+                self._estrategias_testadas_cache = {}
+                
                 # Rate limiting stats
                 rate_stats = api_rate_limiter.get_stats()
                 
@@ -2163,6 +2199,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # === RESUMO DO CICLO ===
                 requests_usados = self.requests_contador - requests_inicio_ciclo
                 rate_stats = api_rate_limiter.get_stats()
+                
+                # Log resumo das estratégias (NOVO)
+                logger_estrategias.log_resumo_ciclo()
                 
                 # Log de estatísticas do ciclo
                 logger_prod.stats_ciclo(
