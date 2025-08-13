@@ -383,31 +383,45 @@ def analisar_ev_partidas():
     
     print("🎾 SELEÇÃO FINAL - ANÁLISE REFINADA COM MÚLTIPLOS FILTROS")
     print("=" * 70)
-    print("🔍 Aplicando filtros: Timing OBRIGATÓRIO + EV + MS + DF + W1S")
-    # FILTROS AJUSTADOS - ESTRATÉGIA RIGOROSA
-    CRITERIOS_RIGOROSOS = {
-        'EV_MINIMO': 0.15,        # EV mínimo 0.15 (máx 0.50)
-        'MOMENTUM_SCORE_MINIMO': 65,  # MS ≥ 65% sem limite máximo
-        'WIN_1ST_SERVE_MINIMO': 65,   # W1S ≥ 65% sem limite máximo
-        'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5
-        'PRIORIDADE_MINIMA': 3        # Prioridade ≥ 3
-    }
+    print("🔍 Aplicando filtros: ESTRATÉGIAS INDEPENDENTES")
     
-    # 🎯 CRITÉRIOS ESPECIAIS PARA ESTRATÉGIA INVERTIDA (3º sets e alta tensão)
+    # 🚀 ESTRATÉGIA ALAVANCAGEM - Para EVs muito altos (independente)
+    CRITERIOS_ALAVANCAGEM = {
+        'EV_MINIMO': 0.5,             # EVs altos (0.5+)
+        'EV_MAXIMO': 50.0,            # Sem limite superior
+        'MOMENTUM_SCORE_MINIMO': 40,  # MS ≥ 40% (RELAXADO)
+        'WIN_1ST_SERVE_MINIMO': 50,   # W1S ≥ 50% (RELAXADO)
+        'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
+        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO)
+        'NOME': 'ALAVANCAGEM'
+    }
+
+    # 🧠 ESTRATÉGIA VANTAGEM MENTAL - Para situações psicológicas (independente)
+    CRITERIOS_VANTAGEM_MENTAL = {
+        'EV_MINIMO': 0.15,            # EV moderado
+        'EV_MAXIMO': 2.0,             # Limite moderado
+        'MOMENTUM_SCORE_MINIMO': 60,  # MS ≥ 60% (importante para mental)
+        'WIN_1ST_SERVE_MINIMO': 60,   # W1S ≥ 60% (importante para mental)
+        'DOUBLE_FAULTS_MAXIMO': 4,    # DF ≤ 4 (rigoroso para mental)
+        'PRIORIDADE_MINIMA': 3,       # Prioridade ≥ 3
+        'NOME': 'VANTAGEM_MENTAL'
+    }
+
+    # 🔄 ESTRATÉGIA INVERTIDA - Para fadiga e 3º sets (independente)
     CRITERIOS_INVERTIDOS = {
-        'EV_MINIMO': -1.0,        # EV relaxado para 3º sets
-        'EV_MAXIMO': 2.0,         # Permitir EVs altos também
-        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% sem limite máximo
-        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% sem limite máximo
-        'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5
-        'PRIORIDADE_MINIMA': 3        # Prioridade ≥ 3
+        'EV_MINIMO': 0.1,             # EV baixo (situações especiais)
+        'EV_MAXIMO': 3.0,             # Permite EVs altos
+        'MOMENTUM_SCORE_MINIMO': 45,  # MS ≥ 45% (MUITO RELAXADO)
+        'WIN_1ST_SERVE_MINIMO': 45,   # W1S ≥ 45% (MUITO RELAXADO)
+        'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
+        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2
+        'NOME': 'INVERTIDA'
     }
     
-    print("🎯 FILTROS AJUSTADOS - Configuração moderada")
-    print(f"   • EV mínimo: {CRITERIOS_RIGOROSOS['EV_MINIMO']}")
-    print(f"   • Momentum Score mínimo: {CRITERIOS_RIGOROSOS['MOMENTUM_SCORE_MINIMO']}%")
-    print(f"   • Win 1st Serve mínimo: {CRITERIOS_RIGOROSOS['WIN_1ST_SERVE_MINIMO']}%")
-    print(f"   • Double Faults máximo: {CRITERIOS_RIGOROSOS['DOUBLE_FAULTS_MAXIMO']}")
+    print("🎯 ESTRATÉGIAS INDEPENDENTES - Cada uma com seus critérios:")
+    print(f"   🚀 ALAVANCAGEM: EV ≥ {CRITERIOS_ALAVANCAGEM['EV_MINIMO']}, MS ≥ {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}%, W1S ≥ {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}%")
+    print(f"   🧠 VANTAGEM MENTAL: EV ≥ {CRITERIOS_VANTAGEM_MENTAL['EV_MINIMO']}, MS ≥ {CRITERIOS_VANTAGEM_MENTAL['MOMENTUM_SCORE_MINIMO']}%, W1S ≥ {CRITERIOS_VANTAGEM_MENTAL['WIN_1ST_SERVE_MINIMO']}%")
+    print(f"   🔄 INVERTIDA: EV ≥ {CRITERIOS_INVERTIDOS['EV_MINIMO']}, MS ≥ {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}%, W1S ≥ {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}%")
     
     def verificar_se_e_terceiro_set(placar):
         """Verifica se a partida está no 3º set"""
@@ -685,12 +699,12 @@ def analisar_ev_partidas():
             time.sleep(0.2)  # Rate limiting otimizado - reduzido de 0.5 para 0.2
             
             # 🚨 FILTRO ELIMINATÓRIO ABSOLUTO: TIMING OBRIGATÓRIO
-            # FILTROS RIGOROSOS - Verificar se a partida passou em todos os critérios
-            timing_aprovado = partida.get('prioridade', 0) >= CRITERIOS_RIGOROSOS['PRIORIDADE_MINIMA']
+            # Usar critério mais relaxado para permitir mais partidas
+            timing_aprovado = partida.get('prioridade', 0) >= 2  # Prioridade ≥ 2 (relaxado)
             
             if not timing_aprovado:
                 print(f"   🚨 ELIMINADO POR TIMING INSUFICIENTE - Prioridade: {partida.get('prioridade', 0)}/5")
-                print(f"      ❌ FILTRO ELIMINATÓRIO: Só aceita timing ÓTIMO (4) ou EXCELENTE (5)")
+                print(f"      ❌ FILTRO ELIMINATÓRIO: Só aceita timing ≥ 2")
                 continue
             
             # FILTROS ANTI-PROBLEMAS ESPECÍFICOS
@@ -727,8 +741,24 @@ def analisar_ev_partidas():
                 criterios = CRITERIOS_INVERTIDOS
                 estrategia_tipo = "INVERTIDA (3º set/alta tensão)"
                 # Debug suprimido para logs mais limpos
+            elif ev_principal >= 0.5:  # Alavancagem para EVs altos
+                criterios = CRITERIOS_ALAVANCAGEM
+                estrategia_tipo = "ALAVANCAGEM (EV alto)"
+            elif ev_principal >= 0.15:  # Vantagem Mental para EVs moderados
+                criterios = CRITERIOS_VANTAGEM_MENTAL
+                estrategia_tipo = "VANTAGEM MENTAL (EV moderado)"
             else:
-                criterios = CRITERIOS_RIGOROSOS
+                # Critérios padrão rigorosos para EVs baixos
+                criterios = {
+                    'EV_MINIMO': 0.05,
+                    'MOMENTUM_SCORE_MINIMO': 65,
+                    'WIN_1ST_SERVE_MINIMO': 65,
+                    'DOUBLE_FAULTS_MAXIMO': 3,
+                    'ODDS_MIN': 1.20,
+                    'ODDS_MAX': 3.50,
+                    'TEMPO_MINIMO': 45,
+                    'PRIORIDADE_MINIMA': 4
+                }
                 estrategia_tipo = "RIGOROSA (situação normal)"
                 # Debug suprimido para logs mais limpos
             
@@ -843,16 +873,22 @@ def analisar_ev_partidas():
             print("")
     else:
         print("\n❌ Nenhuma oportunidade encontrada que passe em TODOS os filtros")
-        print("💡 ESTRATÉGIA DUPLA IMPLEMENTADA:")
-        print("\n📊 CRITÉRIOS RIGOROSOS (situações normais):")
-        print("   • 🚨 TIMING: OBRIGATÓRIO - Só ÓTIMO (4) ou EXCELENTE (5)")
-        print(f"   • EV: +{CRITERIOS_RIGOROSOS['EV_MINIMO']} a +0.50")
-        print(f"   • Momentum Score: {CRITERIOS_RIGOROSOS['MOMENTUM_SCORE_MINIMO']}% a 70%")
-        print(f"   • Double Faults: 0 a {CRITERIOS_RIGOROSOS['DOUBLE_FAULTS_MAXIMO']}")
-        print(f"   • Win 1st Serve: {CRITERIOS_RIGOROSOS['WIN_1ST_SERVE_MINIMO']}% a 80%")
-        print("\n🎯 ESTRATÉGIA INVERTIDA (3º sets e alta tensão):")
+        print("💡 ESTRATÉGIAS INDEPENDENTES IMPLEMENTADAS:")
+        print("\n� ALAVANCAGEM (EVs altos ≥0.5):")
+        print(f"   • EV: +{CRITERIOS_ALAVANCAGEM['EV_MINIMO']} ou mais")
+        print(f"   • Momentum Score: {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}% (RELAXADO)")
+        print(f"   • Win 1st Serve: {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}% (RELAXADO)")
+        print("\n🧠 VANTAGEM MENTAL (EVs moderados ≥0.15):")
+        print(f"   • EV: +{CRITERIOS_VANTAGEM_MENTAL['EV_MINIMO']} a +0.49")
+        print(f"   • Momentum Score: {CRITERIOS_VANTAGEM_MENTAL['MOMENTUM_SCORE_MINIMO']}% (MODERADO)")
+        print(f"   • Win 1st Serve: {CRITERIOS_VANTAGEM_MENTAL['WIN_1ST_SERVE_MINIMO']}% (MODERADO)")
+        print("\n🎯 INVERTIDA (3º sets e alta tensão):")
         print(f"   • EV: {CRITERIOS_INVERTIDOS['EV_MINIMO']} a +{CRITERIOS_INVERTIDOS['EV_MAXIMO']} (MUITO RELAXADO)")
         print(f"   • Momentum Score: {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% a 85% (RELAXADO)")
+        print("\n📊 RIGOROSA (EVs baixos <0.15):")
+        print("   • EV: +0.05 a +0.14")
+        print("   • Momentum Score: 65% (RIGOROSO)")
+        print("   • Win 1st Serve: 65% (RIGOROSO)")
         print(f"   • Double Faults: 0 a {CRITERIOS_INVERTIDOS['DOUBLE_FAULTS_MAXIMO']} (MUITO RELAXADO)")
         print(f"   • Win 1st Serve: {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}% a 85% (RELAXADO)")
         print("   • 🎯 OBJETIVO: Aproveitar cenários de alta pressão e fadiga")
