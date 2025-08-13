@@ -2095,6 +2095,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             try:
                 contador_ciclos += 1
                 agora = datetime.now()
+                agora_timestamp = time.time()  # Para operações de cache que precisam de float
                 
                 # Limpar cache antigo a cada ciclo
                 self.limpar_cache_antigo()
@@ -2115,10 +2116,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 self._estrategias_testadas_cache = {}
                 
                 # Limpar cache de odds antigo (> 45s)
-                agora = time.time()
                 cache_keys_para_remover = []
                 for key, (timestamp, _) in self.cache_odds.items():
-                    if agora - timestamp > self.cache_odds_timeout:
+                    if agora_timestamp - timestamp > self.cache_odds_timeout:
                         cache_keys_para_remover.append(key)
                 
                 for key in cache_keys_para_remover:
@@ -2264,21 +2264,21 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 requests_hora = rate_stats['requests_last_hour']
                 
                 # Log de monitoramento detalhado
-                if requests_hora > 600:
-                    logger_ultra.warning(f"⚠️ API Usage: {requests_hora}/1800 ({(requests_hora/1800)*100:.1f}%)")
+                if requests_hora > 1200:  # 33% do limite (3600) - CORRIGIDO
+                    logger_ultra.warning(f"⚠️ API Usage: {requests_hora}/3600 ({(requests_hora/3600)*100:.1f}%)")
                 
-                if requests_hora > 1400:  # 78% do limite (1800) - REDUZIDO
+                if requests_hora > 2800:  # 78% do limite (3600) - CORRIGIDO
                     logger_prod.warning("CRÍTICO: Muito próximo do limite da API!")
-                    logger_ultra.warning(f"🚨 CRÍTICO: {requests_hora}/1800 requests")
+                    logger_ultra.warning(f"🚨 CRÍTICO: {requests_hora}/3600 requests")
                     tempo_espera = 120  # 2 minutos - AUMENTADO
-                elif requests_hora > 1100:  # 61% do limite - REDUZIDO
+                elif requests_hora > 2200:  # 61% do limite - CORRIGIDO
                     logger_prod.warning("ATENÇÃO: Aproximando do limite da API")
-                    logger_ultra.warning(f"⚠️ ALTO: {requests_hora}/1800 requests")
+                    logger_ultra.warning(f"⚠️ ALTO: {requests_hora}/3600 requests")
                     tempo_espera = 90   # 1.5 minutos - AUMENTADO
-                elif requests_hora > 800:   # 44% do limite - REDUZIDO
+                elif requests_hora > 1600:   # 44% do limite - CORRIGIDO
                     logger_prod.warning("MODERADO: Monitorando uso da API")
                     tempo_espera = 75   # 1.25 minutos
-                elif requests_hora > 600:   # 33% do limite - NOVO PATAMAR
+                elif requests_hora > 1200:   # 33% do limite - CORRIGIDO
                     tempo_espera = 65   # Anteriormente era padrão
                 else:
                     tempo_espera = 55   # Padrão mantido

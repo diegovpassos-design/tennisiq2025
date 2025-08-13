@@ -13,7 +13,8 @@ from collections import deque
 class RateLimiter:
     """Controla rate limiting para requisições de API"""
     
-    def __init__(self, max_requests_per_minute=30, max_requests_per_hour=1800):
+    def __init__(self, max_requests_per_minute=80,
+        max_requests_per_second=5, max_requests_per_hour=3600):  # CORRIGIDO: 3600 vs 1800
         self.max_per_minute = max_requests_per_minute
         self.max_per_hour = max_requests_per_hour
         
