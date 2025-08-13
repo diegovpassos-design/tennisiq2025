@@ -38,8 +38,9 @@ from datetime import datetime, timedelta, timezone
 try:
     from ..utils.rate_limiter import api_rate_limiter
     from ..utils.logger_producao import logger_prod
+    from ..utils.logger_ultra import logger_ultra  # NOVO: Logger ultra-otimizado
     RATE_LIMITER_DISPONIVEL = True
-    print("✅ Rate Limiter e Logger Produção carregados")
+    print("✅ Rate Limiter, Logger Produção e Logger Ultra carregados")
 except ImportError:
     print("⚠️ Rate Limiter não disponível - usando fallback")
     class RateLimiterFallback:
@@ -1221,7 +1222,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 
                 # EXECUTAR ESTRATÉGIAS POR PRIORIDADE (sem conflito de odds)
                 
-                # 1ª PRIORIDADE: ALAVANCAGEM (odds 1.20-1.40)
+                # 1ª PRIORIDADE: ALAVANCAGEM (odds 1.15-1.60) - OTIMIZADO
+                logger_ultra.info(f"🔍 Analisando ALAVANCAGEM para: {oportunidade.get('jogador', 'N/A')}")
                 analise_alavancagem = self.analisar_alavancagem(oportunidade, odds_data)
                 
                 # Log da análise de alavancagem
@@ -1739,13 +1741,18 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 oportunidade, placar, odds_data
             )
             
-            # Log apenas resultado final (não debug detalhado)
+            # Log com logger ultra para garantir visibilidade
             if analise['alavancagem_aprovada']:
+                # Log crítico - sempre visível
+                logger_ultra.success(f"🚀 ALAVANCAGEM APROVADA: {oportunidade.get('jogador', 'N/A')}")
+                logger_ultra.info(f"📊 Justificativa: {analise.get('justificativa', 'N/A')}")
+                
+                # Log formatado também
                 logger_formatado.log_estrategia('alavancagem', 'sucesso', 
                     f"Aprovada: {analise.get('justificativa', 'N/A')}", 
                     oportunidade.get('jogador', 'N/A'))
             else:
-                # Log de rejeição com motivo
+                # Log de rejeição apenas no logger formatado para não fazer spam
                 motivo = analise.get('motivo', analise.get('motivo_rejeicao', 'Critérios não atendidos'))
                 logger_formatado.log_estrategia('alavancagem', 'rejeicao', motivo, 
                     oportunidade.get('jogador', 'N/A'))
@@ -2011,6 +2018,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
     def executar_monitoramento(self):
         """Executa o ciclo principal de monitoramento 24h."""
         logger_prod.success("TennisIQ Bot - Iniciando Monitoramento 24h...")
+        logger_ultra.success("🚀 TENNISIQ BOT INICIADO - ALAVANCAGEM OTIMIZADA ATIVA")
         
         # Configurar verbosidade baseada no ambiente
         if LOGGER_FORMATADO_DISPONIVEL:
@@ -2022,6 +2030,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         logger_prod.info("Bot ativo - Monitorando oportunidades 24/7")
         logger_prod.info("Verificações a cada 45 segundos")
         logger_prod.info("Rate limiting aplicado para API")
+        logger_ultra.info("🎯 Sistema de alavancagem otimizado carregado (odds 1.15-1.60)")
         
         contador_ciclos = 0
         contador_oportunidades_total = 0
@@ -2043,6 +2052,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 
                 # === INÍCIO DO CICLO ===
                 logger_prod.ciclo_inicio(contador_ciclos)
+                logger_ultra.novo_ciclo()  # Reset para novo ciclo
+                logger_ultra.info(f"🔄 CICLO {contador_ciclos} - Verificando alavancagem")
                 
                 # Rate limiting stats
                 rate_stats = api_rate_limiter.get_stats()
