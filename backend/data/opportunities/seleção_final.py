@@ -486,11 +486,14 @@ def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_princ
     dominancia_aprovada = casa_dominante or visitante_dominante
     ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
     
+    print(f"")
     print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
+    print(f"")
     print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
     
     if not (dominancia_aprovada and ev_aprovado):
-        print(f"         ❌ ALAVANCAGEM rejeitada - falhou critérios básicos")
+        print(f"")
+        print(f"         ❌ ALAVANCAGEM rejeitada")
         return None
     
     # ========== VALIDAÇÕES ESPECÍFICAS DE ALAVANCAGEM ==========
@@ -549,10 +552,13 @@ def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_princ
     df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
     df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
     
+    print(f"")
     print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
+    print(f"")
     print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
     
     if odds_aprovado and df_aprovado:
+        print(f"")
         print(f"         ✅ ALAVANCAGEM APROVADA!")
         return {
             'partida_id': event_id,
@@ -574,6 +580,7 @@ def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_princ
             'w1s_visitante': w1s_visitante
         }
     else:
+        print(f"")
         print(f"         ❌ ALAVANCAGEM rejeitada na validação final")
         return None
 
@@ -616,10 +623,13 @@ def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_princ
     dominancia_aprovada = casa_dominante or visitante_dominante
     ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
     
+    print(f"")
     print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
+    print(f"")
     print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
     
     if not (dominancia_aprovada and ev_aprovado):
+        print(f"")
         print(f"         ❌ TRADICIONAL rejeitada")
         return None
     
@@ -649,10 +659,13 @@ def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_princ
     df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
     df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
     
+    print(f"")
     print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
+    print(f"")
     print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
     
     if odds_aprovado and df_aprovado:
+        print(f"")
         print(f"         ✅ TRADICIONAL APROVADA!")
         return {
             'partida_id': event_id,
@@ -674,6 +687,7 @@ def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_princ
             'w1s_visitante': w1s_visitante
         }
     else:
+        print(f"")
         print(f"         ❌ TRADICIONAL rejeitada na validação final")
         return None
 
@@ -723,11 +737,15 @@ def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_te
     ev_principal = max(dados_casa.get('ev', 0), dados_visitante.get('ev', 0))
     ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
     
+    print(f"")
     print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
+    print(f"")
     print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
+    print(f"")
     print(f"         🔥 Alta Tensão: ✅")
     
     if not (dominancia_aprovada and ev_aprovado):
+        print(f"")
         print(f"         ❌ INVERTIDA rejeitada")
         return None
     
@@ -757,10 +775,13 @@ def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_te
     df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
     df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
     
+    print(f"")
     print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
+    print(f"")
     print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
     
     if odds_aprovado and df_aprovado:
+        print(f"")
         print(f"         ✅ INVERTIDA APROVADA!")
         return {
             'partida_id': event_id,
@@ -782,6 +803,7 @@ def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_te
             'w1s_visitante': w1s_visitante
         }
     else:
+        print(f"")
         print(f"         ❌ INVERTIDA rejeitada na validação final")
         return None
 

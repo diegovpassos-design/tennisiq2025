@@ -1,123 +1,133 @@
-import requests
-import json
-import time
-from datetime import datetime
-import sys
-import os
+"""
+FILTRO DE TIMING RIGOROSO PARA TENNIS IQ
 
-# Adicionar o diretório dados ao path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'dados'))
+Sistema que filtra partidas baseado em timing e prioridade de entrada.
+Só aprova partidas com prioridade ≥3 (2º set ou mais avançado).
+
+PRIORIDADES:
+- 5: 3º set (qualquer ponto) - EXCELENTE
+- 4: 2º set meio/final (3-3+) - ÓTIMO  
+- 3: 2º set início (0-0 até 2-2) - BOM (MÍNIMO ACEITO)
+- 2: 1º set meio (3-3+) - POSSÍVEL (REJEITADO)
+- 1: 1º set início (0-0 até 2-2) - CEDO (REJEITADO)
+- 0: Tie-break/Match point - EVITAR (REJEITADO)
+"""
+
+import json
+import requests
+from datetime import datetime
+import re
 
 def buscar_partidas_ao_vivo():
     """Busca todas as partidas de tênis ao vivo."""
-    url = "https://api.b365api.com/v3/events/inplay"
-    params = {
-        'sport_id': 13,  # Tennis
-        'token': '226997-BVn3XP4cGLAUfL'
-    }
-    
     try:
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        url = "https://d.flashscore.com/x/feed/d_hh_1_8_pt_2_ebgkmz6e"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Referer': 'https://www.flashscore.pt/'
+        }
         
-        if data['success']:
-            return data['results']
-        else:
-            print(f"❌ API Erro: {data}")
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            print(f"❌ Erro HTTP: {response.status_code}")
             return []
-    
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Erro na requisição: {e}")
-        return []
-    except ValueError as e:
-        print(f"❌ Erro no JSON: {e}")
+            
+        data = response.text
+        
+        # Buscar eventos em JSON
+        eventos = []
+        linhas = data.split('\n')
+        
+        for linha in linhas:
+            if '"id":"' in linha and '"league":' in linha and '"home":' in linha:
+                try:
+                    evento_json = json.loads(linha)
+                    if evento_json.get('sport_id') == 2:  # Tênis
+                        eventos.append(evento_json)
+                except:
+                    continue
+                    
+        return eventos
+        
+    except Exception as e:
+        print(f"❌ Erro ao buscar partidas: {e}")
         return []
 
-def analisar_fase_jogo(ss_data):
+def analisar_fase_jogo(placar_str):
     """
-    Analisa a fase do jogo baseado no placar (ss) e retorna classificação de timing.
-    
-    Retorna:
-    - fase: string identificando a fase
-    - entrada_segura: boolean se é seguro entrar
-    - prioridade: int (1=baixa, 5=excelente)
+    Analisa a fase do jogo e retorna:
+    - fase: Descrição textual da fase
+    - entrada_segura: Se é seguro entrar neste momento
+    - prioridade: Nível de prioridade (0-5)
     """
     
-    if not ss_data or ss_data == 'N/A':
-        return "sem_dados", False, 0
+    if not placar_str or placar_str.strip() == '':
+        return "Placar não disponível", False, 0
+    
+    placar = placar_str.strip()
     
     try:
-        # Analisar o placar atual
-        if ',' in ss_data:
-            sets = ss_data.split(',')
-        else:
-            sets = [ss_data]
+        # Match terminado - EVITAR
+        if any(keyword in placar.lower() for keyword in ['finished', 'finalizado', 'ended']):
+            return "Partida finalizada", False, 0
         
-        sets = [s.strip() for s in sets]
+        # Tie-break detectado - EVITAR (muito volátil)
+        if '(' in placar and ')' in placar:
+            return "Tie-break em andamento", False, 0
+        
+        # Match point - EVITAR (resultado pode sair a qualquer momento)
+        if re.search(r'[56]-[56]', placar):
+            # Verificar se há match point (um jogador com 6 e outro com 5)
+            if '6-5' in placar or '5-6' in placar:
+                return "Match point detectado", False, 0
+        
+        # Extrair sets do placar (formato: "6-4, 2-3" ou "6-4 2-3")
+        sets = re.findall(r'(\d+)-(\d+)', placar)
+        
+        if not sets:
+            return "Formato de placar inválido", False, 0
+        
         num_sets = len(sets)
+        set_atual = sets[-1]  # Último set (em andamento)
+        games_p1, games_p2 = int(set_atual[0]), int(set_atual[1])
         
-        # Analisar último set (atual)
-        ultimo_set = sets[-1]
-        if '-' in ultimo_set:
-            games_a, games_b = map(int, ultimo_set.split('-'))
+        # ===== ANÁLISE POR NÚMERO DE SETS =====
+        
+        if num_sets >= 3:
+            # 3º SET OU MAIS - PRIORIDADE MÁXIMA
+            return f"3º set: {games_p1}-{games_p2}", True, 5
+            
+        elif num_sets == 2:
+            # 2º SET - AVALIAR PROGRESSO
+            total_games = games_p1 + games_p2
+            
+            if total_games >= 6:  # 3-3 para cima
+                return f"2º set meio/final: {games_p1}-{games_p2}", True, 4
+            else:  # 0-0 até 2-2
+                return f"2º set início: {games_p1}-{games_p2}", True, 3
+                
+        elif num_sets == 1:
+            # 1º SET - GERALMENTE CEDO DEMAIS
+            total_games = games_p1 + games_p2
+            
+            if total_games >= 6:  # 3-3 para cima
+                return f"1º set meio: {games_p1}-{games_p2}", False, 2
+            else:  # 0-0 até 2-2
+                return f"1º set início: {games_p1}-{games_p2}", False, 1
+        
         else:
-            return "formato_invalido", False, 0
-        
-        # Determinar qual set estamos
-        sets_completos = num_sets - 1
-        
-        # Verificar se é tie-break (6-6 ou 7-6)
-        if (games_a == 6 and games_b == 6) or (games_a == 7 and games_b == 6) or (games_a == 6 and games_b == 7):
-            return "tiebreak", False, 0
-        
-        # Verificar match point
-        if ((games_a >= 6 or games_b >= 6) and abs(games_a - games_b) >= 1):
-            # Se alguém tem 6+ e diferença de 1+, pode ser match point
-            if sets_completos >= 1:  # 2º set ou mais
-                return "possivel_matchpoint", False, 0
-        
-        # Análise por set
-        if sets_completos == 0:  # 1º set
-            total_games = games_a + games_b
-            
-            if total_games <= 4:  # 0x0 até 2x2
-                return "1set_early", False, 1
-            elif total_games <= 10:  # 3x3 até 5x5
-                return "1set_mid", True, 2
-            else:  # 6x6+
-                return "1set_late", False, 1
-                
-        elif sets_completos == 1:  # 2º set
-            total_games = games_a + games_b
-            
-            if total_games <= 4:  # 0x0 até 2x2
-                return "2set_early", True, 3
-            elif total_games <= 10:  # 3x3 até 5x5
-                return "2set_mid", True, 4
-            else:  # 6x6+
-                return "2set_late", True, 3
-                
-        elif sets_completos == 2:  # 3º set
-            total_games = games_a + games_b
-            
-            if total_games <= 10:  # Qualquer ponto equilibrado
-                return "3set_mid", True, 5
-            else:
-                return "3set_late", True, 4
-        
-        else:  # Sets extras (improvável no tênis)
-            return "set_extra", True, 3
+            return "Início da partida", False, 1
             
     except Exception as e:
-        return "erro_analise", False, 0
+        return f"Erro na análise: {str(e)}", False, 0
 
 def filtrar_partidas_por_timing():
     """
-    TIMING LIBERADO 24H - Retorna todas as partidas sem filtro de timing.
+    FILTRO DE TIMING RIGOROSO - Só aprova partidas com prioridade ≥3 (2º set ou mais).
     """
     
-    print("🟢 FILTRO DE TIMING DESABILITADO - 24H LIBERADO")
+    print("🔴 FILTRO DE TIMING RIGOROSO ATIVADO")
     print("=" * 60)
     
     # Buscar eventos ao vivo
@@ -129,10 +139,10 @@ def filtrar_partidas_por_timing():
     
     partidas_filtradas = []
     
-    print(f"🔴 TOTAL DE PARTIDAS ENCONTRADAS: {len(eventos_ao_vivo)}")
+    print(f"🎾 TOTAL DE PARTIDAS ENCONTRADAS: {len(eventos_ao_vivo)}")
     print(f"📅 Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     print("")
-    print("🟢 APROVANDO TODAS AS PARTIDAS - SEM RESTRIÇÃO DE TIMING...")
+    print("🔴 FILTRO RIGOROSO: Só aprova prioridade ≥3")
     print("=" * 80)
     
     for i, evento in enumerate(eventos_ao_vivo, 1):
@@ -147,7 +157,7 @@ def filtrar_partidas_por_timing():
         # Placar básico do evento principal
         ss_basico = evento.get('ss', '')
         
-        # APROVAÇÃO AUTOMÁTICA - SEM ANÁLISE DE TIMING
+        # ANÁLISE RIGOROSA DE TIMING - USAR VALORES REAIS
         fase, entrada_segura, prioridade = analisar_fase_jogo(ss_basico)
         
         # Criar objeto da partida
@@ -158,14 +168,20 @@ def filtrar_partidas_por_timing():
             'jogador_visitante': jogador_visitante,
             'placar': ss_basico,
             'fase': fase,
-            'entrada_segura': True,  # SEMPRE SEGURA
-            'prioridade': 5,  # SEMPRE MÁXIMA PRIORIDADE
+            'entrada_segura': entrada_segura,
+            'prioridade': prioridade,
             'evento_completo': evento
         }
         
-        # SEMPRE APROVADO - 24H LIBERADO
-        emoji = "🟢"  # Verde - Sempre aprovado
-        status = "APROVADO 24H"
+        # FILTRO RIGOROSO - SÓ APROVA PRIORIDADE ≥3
+        if entrada_segura and prioridade >= 3:
+            emoji = "🟢"  # Verde - Aprovado  
+            status = "APROVADO"
+            incluir_partida = True
+        else:
+            emoji = "🔴"  # Vermelho - Rejeitado
+            status = f"REJEITADO (Prio {prioridade})"
+            incluir_partida = False
         
         print(f"{emoji} PARTIDA {i} - {status}")
         print(f"   ID: {evento_id}")
@@ -173,36 +189,39 @@ def filtrar_partidas_por_timing():
         print(f"   👤 {jogador_casa} vs {jogador_visitante}")
         print(f"   🎯 Games: {ss_basico}")
         print(f"   ⏱️  Fase: {fase}")
-        print(f"   📊 Prioridade: 5/5 (LIBERADO)")
+        print(f"   📊 Prioridade: {prioridade}/5 | Segura: {'✅' if entrada_segura else '❌'}")
         
-        # SEMPRE INCLUIR - SEM FILTRO
-        partidas_filtradas.append(partida_info)
-        print(f"   ✅ INCLUÍDA AUTOMATICAMENTE")
+        # INCLUIR APENAS SE APROVADO
+        if incluir_partida:
+            partidas_filtradas.append(partida_info)
+            print(f"   ✅ INCLUÍDA")
+        else:
+            print(f"   ❌ REJEITADA - Timing insuficiente")
         
         print("-" * 60)
     
     # Resumo
     print("\n" + "=" * 80)
-    print("📊 RESUMO DO FILTRO DE TIMING - 24H LIBERADO")
+    print("📊 RESUMO DO FILTRO DE TIMING RIGOROSO")
     print("=" * 80)
-    print(f"✅ Total de partidas analisadas: {len(eventos_ao_vivo)}")
-    print(f"🟢 Partidas aprovadas automaticamente: {len(partidas_filtradas)}")
-    print(f"❌ Partidas rejeitadas: 0 (TODAS APROVADAS)")
+    print(f"🎾 Total de partidas analisadas: {len(eventos_ao_vivo)}")
+    print(f"🟢 Partidas aprovadas (prioridade ≥3): {len(partidas_filtradas)}")
+    print(f"❌ Partidas rejeitadas: {len(eventos_ao_vivo) - len(partidas_filtradas)}")
     
-    # Classificar por ID (já que não há mais prioridade real)
-    partidas_filtradas.sort(key=lambda x: x['id'])
+    # Ordenar por prioridade (decrescente)
+    partidas_filtradas.sort(key=lambda x: x['prioridade'], reverse=True)
     
     if partidas_filtradas:
-        print("\n� TODAS AS PARTIDAS LIBERADAS PARA ANÁLISE:")
+        print("\n🎯 PARTIDAS APROVADAS (ordenadas por prioridade):")
         print("=" * 50)
         
-        for i, partida in enumerate(partidas_filtradas[:10], 1):  # Top 10
-            emoji_prio = "🟢"  # Sempre verde
+        for i, partida in enumerate(partidas_filtradas[:10], 1):
+            emoji_prio = "🟢" if partida['prioridade'] >= 4 else "🔵"
             print(f"{emoji_prio} {i}. {partida['jogador_casa']} vs {partida['jogador_visitante']}")
-            print(f"      Placar: {partida['placar']} | Fase: {partida['fase']} | Status: LIBERADO 24H")
+            print(f"      Prioridade: {partida['prioridade']}/5 | Fase: {partida['fase']}")
     
     print(f"\n🕐 Última atualização: {datetime.now().strftime('%H:%M:%S')}")
-    print("🟢 SISTEMA LIBERADO 24 HORAS - SEM RESTRIÇÕES DE TIMING")
+    print("🔴 FILTRO RIGOROSO ATIVO - Apenas prioridade ≥3")
     
     return partidas_filtradas
 
@@ -219,13 +238,13 @@ def explicar_criterios():
     print("   • 2º set - meio (3x3 a 5x5)")
     print("   • Odds estabilizadas, jogadores testados")
     print("")
-    print("🟡 BOM (Prioridade 3) - AGORA REJEITADO:")
+    print("🟡 BOM (Prioridade 3) - MÍNIMO ACEITO:")
     print("   • 2º set - início (0x0 até 2x2)")
-    print("   • ❌ Filtro muito rigoroso, preferimos mais dados")
+    print("   • ✅ Já temos dados do 1º set para análise")
     print("")
     print("🟠 POSSÍVEL (Prioridade 2) - REJEITADO:")
     print("   • 1º set - meio (3x3 até 5x5)")
-    print("   • ❌ Filtro muito rigoroso, preferimos mais dados")
+    print("   • ❌ Filtro rigoroso, preferimos mais dados")
     print("")
     print("🔴 EVITAR (Prioridade 0-1):")
     print("   • 1º set início (0x0 até 2x2)")
@@ -234,4 +253,16 @@ def explicar_criterios():
     print("   • Padrão tático ainda não claro")
 
 if __name__ == "__main__":
-    filtrar_partidas_por_timing()
+    print("🎾 SISTEMA DE FILTRO DE TIMING - TENNIS IQ")
+    print("=" * 50)
+    
+    explicar_criterios()
+    print("\n" + "=" * 50)
+    
+    partidas = filtrar_partidas_por_timing()
+    
+    if partidas:
+        print(f"\n✅ {len(partidas)} partidas aprovadas para análise!")
+    else:
+        print("\n❌ Nenhuma partida aprovada no momento.")
+        print("🔄 Aguarde partidas entrarem no 2º set ou mais.")
