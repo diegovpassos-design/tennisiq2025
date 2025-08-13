@@ -340,279 +340,6 @@ def calcular_ev(momentum_score, odd):
     except Exception:
         return 0
 
-def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante):
-    """Testa se a partida atende aos critérios da estratégia ALAVANCAGEM"""
-    
-    # Critérios específicos da ALAVANCAGEM
-    CRITERIOS = {
-        'EV_MINIMO': 0.1,
-        'MOMENTUM_SCORE_MINIMO': 55,
-        'WIN_1ST_SERVE_MINIMO': 55,
-        'DOUBLE_FAULTS_MAXIMO': 8,
-        'ODDS_MIN': 1.20,
-        'ODDS_MAX': 1.50,
-        'NOME': 'ALAVANCAGEM'
-    }
-    
-    print(f"      🚀 Testando ALAVANCAGEM...")
-    
-    # Dados dos jogadores
-    ms_casa = dados_casa.get('momentum_score', 0)
-    ms_visitante = dados_visitante.get('momentum_score', 0)
-    w1s_casa = float(dados_casa.get('win_1st_serve', 0)) if dados_casa.get('win_1st_serve') else 0
-    w1s_visitante = float(dados_visitante.get('win_1st_serve', 0)) if dados_visitante.get('win_1st_serve') else 0
-    
-    # Validação individual
-    casa_dominante = (ms_casa >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_casa >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    visitante_dominante = (ms_visitante >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_visitante >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    dominancia_aprovada = casa_dominante or visitante_dominante
-    ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
-    
-    print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
-    print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
-    
-    if not (dominancia_aprovada and ev_aprovado):
-        print(f"         ❌ ALAVANCAGEM rejeitada")
-        return None
-    
-    # Selecionar jogador target
-    if casa_dominante and not visitante_dominante:
-        jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-    elif visitante_dominante and not casa_dominante:
-        jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    else:
-        # Ambos dominantes - escolher o com maior MS
-        if ms_casa >= ms_visitante:
-            jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-        else:
-            jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    
-    # Validações finais
-    odds_jogador = partida.get('odds_casa' if jogador_target['tipo'] == 'HOME' else 'odds_visitante', 'N/A')
-    if odds_jogador != 'N/A':
-        try:
-            odds_float = float(odds_jogador)
-            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
-        except:
-            odds_aprovado = False
-    else:
-        odds_aprovado = False
-    
-    df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
-    df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
-    
-    print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
-    print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
-    
-    if odds_aprovado and df_aprovado:
-        print(f"         ✅ ALAVANCAGEM APROVADA!")
-        return {
-            'partida_id': event_id,
-            'liga': partida['liga'],
-            'jogador': jogador_target['nome'],
-            'oponente': jogador_target['oponente'],
-            'placar': partida['placar'],
-            'fase_timing': partida['fase'],
-            'prioridade_timing': partida['prioridade'],
-            'tipo': jogador_target['tipo'],
-            'ev': jogador_target['dados']['ev'],
-            'momentum': jogador_target['dados']['momentum_score'],
-            'double_faults': jogador_target['dados']['double_faults'],
-            'win_1st_serve': jogador_target['dados']['win_1st_serve'],
-            'estrategia': 'ALAVANCAGEM',
-            'ms_casa': ms_casa,
-            'ms_visitante': ms_visitante,
-            'w1s_casa': w1s_casa,
-            'w1s_visitante': w1s_visitante
-        }
-    else:
-        print(f"         ❌ ALAVANCAGEM rejeitada na validação final")
-        return None
-
-def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante):
-    """Testa se a partida atende aos critérios da estratégia TRADICIONAL"""
-    
-    # Critérios específicos da TRADICIONAL
-    CRITERIOS = {
-        'EV_MINIMO': 0.15,
-        'MOMENTUM_SCORE_MINIMO': 55,
-        'WIN_1ST_SERVE_MINIMO': 55,
-        'DOUBLE_FAULTS_MAXIMO': 5,
-        'ODDS_MIN': 1.80,
-        'ODDS_MAX': 2.50,
-        'NOME': 'TRADICIONAL'
-    }
-    
-    print(f"      📊 Testando TRADICIONAL...")
-    
-    # Dados dos jogadores
-    ms_casa = dados_casa.get('momentum_score', 0)
-    ms_visitante = dados_visitante.get('momentum_score', 0)
-    w1s_casa = float(dados_casa.get('win_1st_serve', 0)) if dados_casa.get('win_1st_serve') else 0
-    w1s_visitante = float(dados_visitante.get('win_1st_serve', 0)) if dados_visitante.get('win_1st_serve') else 0
-    
-    # Validação individual
-    casa_dominante = (ms_casa >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_casa >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    visitante_dominante = (ms_visitante >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_visitante >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    dominancia_aprovada = casa_dominante or visitante_dominante
-    ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
-    
-    print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
-    print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
-    
-    if not (dominancia_aprovada and ev_aprovado):
-        print(f"         ❌ TRADICIONAL rejeitada")
-        return None
-    
-    # Selecionar jogador target (mesmo código da alavancagem)
-    if casa_dominante and not visitante_dominante:
-        jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-    elif visitante_dominante and not casa_dominante:
-        jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    else:
-        if ms_casa >= ms_visitante:
-            jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-        else:
-            jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    
-    # Validações finais
-    odds_jogador = partida.get('odds_casa' if jogador_target['tipo'] == 'HOME' else 'odds_visitante', 'N/A')
-    if odds_jogador != 'N/A':
-        try:
-            odds_float = float(odds_jogador)
-            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
-        except:
-            odds_aprovado = False
-    else:
-        odds_aprovado = False
-    
-    df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
-    df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
-    
-    print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
-    print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
-    
-    if odds_aprovado and df_aprovado:
-        print(f"         ✅ TRADICIONAL APROVADA!")
-        return {
-            'partida_id': event_id,
-            'liga': partida['liga'],
-            'jogador': jogador_target['nome'],
-            'oponente': jogador_target['oponente'],
-            'placar': partida['placar'],
-            'fase_timing': partida['fase'],
-            'prioridade_timing': partida['prioridade'],
-            'tipo': jogador_target['tipo'],
-            'ev': jogador_target['dados']['ev'],
-            'momentum': jogador_target['dados']['momentum_score'],
-            'double_faults': jogador_target['dados']['double_faults'],
-            'win_1st_serve': jogador_target['dados']['win_1st_serve'],
-            'estrategia': 'TRADICIONAL',
-            'ms_casa': ms_casa,
-            'ms_visitante': ms_visitante,
-            'w1s_casa': w1s_casa,
-            'w1s_visitante': w1s_visitante
-        }
-    else:
-        print(f"         ❌ TRADICIONAL rejeitada na validação final")
-        return None
-
-def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_tensao, event_id, jogador_casa, jogador_visitante):
-    """Testa se a partida atende aos critérios da estratégia INVERTIDA"""
-    
-    # Critérios específicos da INVERTIDA
-    CRITERIOS = {
-        'EV_MINIMO': 0.1,
-        'MOMENTUM_SCORE_MINIMO': 55,
-        'WIN_1ST_SERVE_MINIMO': 55,
-        'DOUBLE_FAULTS_MAXIMO': 6,
-        'ODDS_MIN': 1.80,
-        'ODDS_MAX': 2.50,
-        'NOME': 'INVERTIDA'
-    }
-    
-    print(f"      🔄 Testando INVERTIDA...")
-    
-    # INVERTIDA só ativa em alta tensão
-    if not is_alta_tensao:
-        print(f"         ❌ INVERTIDA rejeitada - não é alta tensão")
-        return None
-    
-    # Dados dos jogadores
-    ms_casa = dados_casa.get('momentum_score', 0)
-    ms_visitante = dados_visitante.get('momentum_score', 0)
-    w1s_casa = float(dados_casa.get('win_1st_serve', 0)) if dados_casa.get('win_1st_serve') else 0
-    w1s_visitante = float(dados_visitante.get('win_1st_serve', 0)) if dados_visitante.get('win_1st_serve') else 0
-    
-    # Validação individual
-    casa_dominante = (ms_casa >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_casa >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    visitante_dominante = (ms_visitante >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_visitante >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    dominancia_aprovada = casa_dominante or visitante_dominante
-    
-    ev_principal = max(dados_casa.get('ev', 0), dados_visitante.get('ev', 0))
-    ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
-    
-    print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
-    print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
-    print(f"         🔥 Alta Tensão: ✅")
-    
-    if not (dominancia_aprovada and ev_aprovado):
-        print(f"         ❌ INVERTIDA rejeitada")
-        return None
-    
-    # Selecionar jogador target (mesmo código das outras)
-    if casa_dominante and not visitante_dominante:
-        jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-    elif visitante_dominante and not casa_dominante:
-        jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    else:
-        if ms_casa >= ms_visitante:
-            jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-        else:
-            jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    
-    # Validações finais
-    odds_jogador = partida.get('odds_casa' if jogador_target['tipo'] == 'HOME' else 'odds_visitante', 'N/A')
-    if odds_jogador != 'N/A':
-        try:
-            odds_float = float(odds_jogador)
-            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
-        except:
-            odds_aprovado = False
-    else:
-        odds_aprovado = False
-    
-    df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
-    df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
-    
-    print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
-    print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
-    
-    if odds_aprovado and df_aprovado:
-        print(f"         ✅ INVERTIDA APROVADA!")
-        return {
-            'partida_id': event_id,
-            'liga': partida['liga'],
-            'jogador': jogador_target['nome'],
-            'oponente': jogador_target['oponente'],
-            'placar': partida['placar'],
-            'fase_timing': partida['fase'],
-            'prioridade_timing': partida['prioridade'],
-            'tipo': jogador_target['tipo'],
-            'ev': jogador_target['dados']['ev'],
-            'momentum': jogador_target['dados']['momentum_score'],
-            'double_faults': jogador_target['dados']['double_faults'],
-            'win_1st_serve': jogador_target['dados']['win_1st_serve'],
-            'estrategia': 'INVERTIDA',
-            'ms_casa': ms_casa,
-            'ms_visitante': ms_visitante,
-            'w1s_casa': w1s_casa,
-            'w1s_visitante': w1s_visitante
-        }
-    else:
-        print(f"         ❌ INVERTIDA rejeitada na validação final")
-        return None
-
 def analisar_ev_partidas():
     """Analisa EV das partidas com filtros refinados."""
     
@@ -624,8 +351,8 @@ def analisar_ev_partidas():
     CRITERIOS_ALAVANCAGEM = {
         'EV_MINIMO': 0.1,             # EVs baixos mas válidos (0.1+)
         'EV_MAXIMO': 50.0,            # Sem limite superior
-        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
+        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (DOMINÂNCIA - apenas um jogador precisa)
+        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (DOMINÂNCIA - apenas um jogador precisa)
         'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
         'ODDS_MIN': 1.20,             # Odds mínima
         'ODDS_MAX': 1.50,             # Odds máxima para alavancagem
@@ -637,8 +364,8 @@ def analisar_ev_partidas():
     CRITERIOS_TRADICIONAL = {
         'EV_MINIMO': 0.15,            # EV moderado
         'EV_MAXIMO': 2.0,             # Limite moderado
-        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
+        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (DOMINÂNCIA - apenas um jogador precisa)
+        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (DOMINÂNCIA - apenas um jogador precisa)
         'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5 (moderado)
         'ODDS_MIN': 1.80,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima para tradicional
@@ -650,8 +377,8 @@ def analisar_ev_partidas():
     CRITERIOS_INVERTIDOS = {
         'EV_MINIMO': 0.1,             # EV baixo (situações especiais)
         'EV_MAXIMO': 3.0,             # Permite EVs altos
-        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
+        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (DOMINÂNCIA - apenas um jogador precisa)
+        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (DOMINÂNCIA - apenas um jogador precisa)
         'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
         'ODDS_MIN': 1.80,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima
@@ -660,9 +387,9 @@ def analisar_ev_partidas():
     }
     
     print("🎯 ESTRATÉGIAS INDEPENDENTES - Cada uma com seus critérios:")
-    print(f"   🚀 ALAVANCAGEM: EV ≥ {CRITERIOS_ALAVANCAGEM['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}%")
-    print(f"   📊 TRADICIONAL: EV ≥ {CRITERIOS_TRADICIONAL['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_TRADICIONAL['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_TRADICIONAL['WIN_1ST_SERVE_MINIMO']}%")
-    print(f"   🔄 INVERTIDA: EV ≥ {CRITERIOS_INVERTIDOS['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}%")
+    print(f"   🚀 ALAVANCAGEM: EV ≥ {CRITERIOS_ALAVANCAGEM['EV_MINIMO']}, MS ≥ {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}% (DOMINÂNCIA), W1S ≥ {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}% (DOMINÂNCIA)")
+    print(f"   📊 TRADICIONAL: EV ≥ {CRITERIOS_TRADICIONAL['EV_MINIMO']}, MS ≥ {CRITERIOS_TRADICIONAL['MOMENTUM_SCORE_MINIMO']}% (DOMINÂNCIA), W1S ≥ {CRITERIOS_TRADICIONAL['WIN_1ST_SERVE_MINIMO']}% (DOMINÂNCIA)")
+    print(f"   🔄 INVERTIDA: EV ≥ {CRITERIOS_INVERTIDOS['EV_MINIMO']}, MS ≥ {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% (DOMINÂNCIA), W1S ≥ {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}% (DOMINÂNCIA)")
     
     def verificar_se_e_terceiro_set(placar):
         """Verifica se a partida está no 3º set"""
@@ -724,49 +451,106 @@ def analisar_ev_partidas():
             print("   ❌ Dados insuficientes para um ou ambos jogadores")
             continue
             
-        # Determinar informações base da partida
+        # Determinar estratégia baseada na situação da partida
         placar = partida.get('placar', '')
         ev_principal = max(dados_casa.get('ev', 0), dados_visitante.get('ev', 0))
         is_terceiro_set = verificar_se_e_terceiro_set(placar)
         is_pos_tiebreak = verificar_pos_tiebreak(placar)
         is_alta_tensao = is_terceiro_set or is_pos_tiebreak or partida.get('prioridade', 0) == 5
         
-        # 🚀 SISTEMA PARALELO: TESTAR TODAS AS ESTRATÉGIAS INDEPENDENTEMENTE
-        oportunidades_partida = []
-        
-        print(f"📊 Testando TODAS as estratégias em paralelo...")
-        print(f"   📈 EV Principal: {ev_principal:.3f}")
-        print(f"   🎯 Alta Tensão: {'✅' if is_alta_tensao else '❌'}")
-        
-        # 1️⃣ TESTAR ESTRATÉGIA ALAVANCAGEM
-        oportunidade_alavancagem = testar_estrategia_alavancagem(
-            partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante
-        )
-        if oportunidade_alavancagem:
-            oportunidades_partida.append(oportunidade_alavancagem)
-            
-        # 2️⃣ TESTAR ESTRATÉGIA TRADICIONAL  
-        oportunidade_tradicional = testar_estrategia_tradicional(
-            partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante
-        )
-        if oportunidade_tradicional:
-            oportunidades_partida.append(oportunidade_tradicional)
-            
-        # 3️⃣ TESTAR ESTRATÉGIA INVERTIDA
-        oportunidade_invertida = testar_estrategia_invertida(
-            partida, dados_casa, dados_visitante, is_alta_tensao, event_id, jogador_casa, jogador_visitante
-        )
-        if oportunidade_invertida:
-            oportunidades_partida.append(oportunidade_invertida)
-        
-        # Adicionar TODAS as oportunidades encontradas desta partida
-        if oportunidades_partida:
-            oportunidades_finais.extend(oportunidades_partida)
-            estrategias = [op['estrategia'] for op in oportunidades_partida]
-            print(f"   ✅ {len(oportunidades_partida)} OPORTUNIDADE(S) APROVADA(S): {', '.join(estrategias)}")
+        # Escolher critérios baseados na situação
+        if is_alta_tensao:
+            criterios = CRITERIOS_INVERTIDOS
+            estrategia_tipo = "INVERTIDA (3º set/alta tensão)"
+        elif ev_principal >= 3.0:
+            criterios = CRITERIOS_ALAVANCAGEM
+            estrategia_tipo = "ALAVANCAGEM (EV muito alto)"
+        elif ev_principal >= 0.15:
+            criterios = CRITERIOS_TRADICIONAL
+            estrategia_tipo = "TRADICIONAL (EV moderado)"
         else:
-            print(f"   ❌ Nenhuma estratégia aprovada para esta partida")
+            print(f"   ❌ EV muito baixo ({ev_principal:.3f}) - sem estratégia aplicável")
+            continue
+        
+        # 🎯 VALIDAÇÃO DE DOMINÂNCIA PARA PARTIDA COMPLETA
+        # MS: Pelo menos UM jogador deve ter ≥55%
+        ms_casa = dados_casa.get('momentum_score', 0)
+        ms_visitante = dados_visitante.get('momentum_score', 0)
+        ms_maximo = max(ms_casa, ms_visitante)
+        ms_aprovado = ms_maximo >= criterios['MOMENTUM_SCORE_MINIMO']
+        
+        # W1S: Pelo menos UM jogador deve ter ≥55%
+        w1s_casa = float(dados_casa.get('win_1st_serve', 0)) if dados_casa.get('win_1st_serve') else 0
+        w1s_visitante = float(dados_visitante.get('win_1st_serve', 0)) if dados_visitante.get('win_1st_serve') else 0
+        w1s_maximo = max(w1s_casa, w1s_visitante)
+        w1s_aprovado = w1s_maximo >= criterios['WIN_1ST_SERVE_MINIMO']
+        
+        # EV: Pelo menos UM jogador deve atender aos critérios
+        ev_aprovado = ev_principal >= criterios['EV_MINIMO']
+        
+        # Logs de validação
+        print(f"   🎯 {estrategia_tipo}")
+        print(f"   📊 MS: Casa={ms_casa:.1f}%, Visitante={ms_visitante:.1f}%, Máximo={ms_maximo:.1f}% {'✅' if ms_aprovado else '❌'}")
+        print(f"   🎾 W1S: Casa={w1s_casa:.1f}%, Visitante={w1s_visitante:.1f}%, Máximo={w1s_maximo:.1f}% {'✅' if w1s_aprovado else '❌'}")
+        print(f"   ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (min {criterios['EV_MINIMO']})")
+        print(f"   🔗 LÓGICA: MS ≥ 55% AND W1S ≥ 55% AND EV ≥ {criterios['EV_MINIMO']} = {ms_aprovado and w1s_aprovado and ev_aprovado}")
+        
+        # Verificar se passou em TODOS os critérios de dominância (AND lógico)
+        if ms_aprovado and w1s_aprovado and ev_aprovado:
+            # Determinar qual jogador é o melhor candidato (maior MS ou maior EV)
+            if ms_casa >= ms_visitante:
+                jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
+            else:
+                jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
+                
+            # Validar odds do jogador target
+            odds_jogador = partida.get('odds_casa' if jogador_target['tipo'] == 'HOME' else 'odds_visitante', 'N/A')
+            odds_aprovado = False
             
+            if odds_jogador != 'N/A':
+                try:
+                    odds_float = float(odds_jogador)
+                    odds_aprovado = criterios['ODDS_MIN'] <= odds_float <= criterios['ODDS_MAX']
+                    print(f"   💰 Odds: {odds_float} {'✅' if odds_aprovado else '❌'} (range {criterios['ODDS_MIN']}-{criterios['ODDS_MAX']})")
+                except (ValueError, TypeError):
+                    print(f"   💰 Odds: inválidas ❌")
+            else:
+                print(f"   💰 Odds: N/A ❌")
+            
+            # Double Faults (validação individual do jogador target)
+            df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
+            df_aprovado = df_value <= criterios['DOUBLE_FAULTS_MAXIMO']
+            print(f"   🎾 DF: {df_value} {'✅' if df_aprovado else '❌'} (max {criterios['DOUBLE_FAULTS_MAXIMO']})")
+            
+            # Decisão final
+            if odds_aprovado and df_aprovado:
+                oportunidade = {
+                    'partida_id': event_id,
+                    'liga': partida['liga'],
+                    'jogador': jogador_target['nome'],
+                    'oponente': jogador_target['oponente'],
+                    'placar': partida['placar'],
+                    'fase_timing': partida['fase'],
+                    'prioridade_timing': partida['prioridade'],
+                    'tipo': jogador_target['tipo'],
+                    'ev': jogador_target['dados']['ev'],
+                    'momentum': jogador_target['dados']['momentum_score'],
+                    'double_faults': jogador_target['dados']['double_faults'],
+                    'win_1st_serve': jogador_target['dados']['win_1st_serve'],
+                    'estrategia': estrategia_tipo,
+                    'ms_casa': ms_casa,
+                    'ms_visitante': ms_visitante,
+                    'w1s_casa': w1s_casa,
+                    'w1s_visitante': w1s_visitante
+                }
+                oportunidades_finais.append(oportunidade)
+                print(f"   ✅ OPORTUNIDADE APROVADA - {estrategia_tipo}")
+            else:
+                print(f"   ❌ REJEITADA - Falhou em odds ou DF")
+        else:
+            print(f"   ❌ REJEITADA - Não atendeu critérios de dominância")
+            
+        print("-" * 60)
     
     # Resumo final
     print("\n" + "=" * 80)
