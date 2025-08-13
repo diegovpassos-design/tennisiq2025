@@ -1645,92 +1645,11 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
     
     def validar_timing_inteligente(self, oportunidade, estrategia_tipo, score_mental=0):
         """
-        Validação de timing adaptada por tipo de estratégia
+        Validação de timing adaptada por tipo de estratégia - LIBERADO 24H
         """
-        # Usar horário de Brasília (UTC-3)
-        agora = datetime.now(timezone(timedelta(hours=-3)))
-        hora_atual = agora.hour
-        
-        # ESTRATÉGIA ALAVANCAGEM: Timing otimizado para 2º set
-        if estrategia_tipo == 'ALAVANCAGEM':
-            contexto = self.identificar_contexto_partida(oportunidade)
-            momentum_score = oportunidade.get('momentum', 0)
-            
-            # Alavancagem é mais eficaz no início/meio do 2º set
-            # Timing muito flexível devido à especificidade da situação
-            
-            # Situação ideal: início/meio do 2º set (timing override)
-            if '2º set' in contexto and momentum_score >= 65:
-                print(f"🚀 Alavancagem 2º set: Momentum {momentum_score}% - Timing override")
-                return True
-            
-            # 1º set quase terminando também é válido
-            if '1º set' in contexto and momentum_score >= 70:
-                print(f"🎾 Alavancagem 1º set final: Momentum {momentum_score}% aprovado")
-                return True
-            
-            # Horário normal sempre liberado
-            if 6 <= hora_atual <= 23:
-                return True
-            
-            # Madrugada liberada se momentum alto (situação específica)
-            if 0 <= hora_atual <= 6 and momentum_score >= 70:
-                print(f"🌙 Alavancagem madrugada: Momentum {momentum_score}% suficiente")
-                return True
-            
-            # Madrugada com momentum baixo
-            print(f"❌ Alavancagem madrugada bloqueada: Momentum {momentum_score}% < 70%")
-            return False
-
-        # ESTRATÉGIA INVERTIDA: Timing mais flexível
-        elif estrategia_tipo == 'INVERTIDA':
-            contexto = self.identificar_contexto_partida(oportunidade)
-            
-            # Situações críticas ignoram timing
-            if score_mental >= 300:  # Score muito alto
-                print(f"⚡ Score mental {score_mental}: Timing override ativado")
-                return True
-                
-            if '3º set' in contexto or 'tie-break' in contexto:
-                print(f"🚨 Situação crítica: {contexto} - Timing override")
-                return True
-            
-            # Madrugada liberada para invertidas com score alto
-            if 0 <= hora_atual <= 6 and score_mental >= 250:
-                print(f"🌙 Madrugada liberada: Score {score_mental} suficiente")
-                return True
-            
-            # Horário normal mais flexível
-            if 6 <= hora_atual <= 23:
-                return True
-                
-            # Madrugada com score baixo
-            print(f"❌ Madrugada bloqueada: Score {score_mental} < 250")
-            return False
-        
-        # ESTRATÉGIA TRADICIONAL: Timing rígido
-        elif estrategia_tipo == 'TRADICIONAL':
-            prioridade = oportunidade.get('prioridade_timing', 0)
-            
-            # Exigir prioridade 3+ sempre
-            if prioridade < 3:
-                print(f"❌ Timing tradicional: Prioridade {prioridade} < 3")
-                return False
-            
-            # Bloquear madrugada sempre
-            if 0 <= hora_atual <= 6:
-                print(f"❌ Timing tradicional: Madrugada bloqueada")
-                return False
-            
-            # Horário comercial preferido
-            if 8 <= hora_atual <= 22:
-                return True
-            
-            # Horário marginal
-            print(f"⚠️ Timing tradicional: Horário marginal {hora_atual}h")
-            return prioridade >= 3  # Prioridade mínima 3
-        
-        return False
+        # SISTEMA LIBERADO 24 HORAS - SEM RESTRIÇÕES DE HORÁRIO
+        print(f"� Timing liberado 24h para estratégia {estrategia_tipo}")
+        return True
     
     def extrair_odd_jogador(self, odds_data, jogador):
         """Extrai a odd do jogador principal"""

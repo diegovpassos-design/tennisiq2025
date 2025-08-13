@@ -114,10 +114,10 @@ def analisar_fase_jogo(ss_data):
 
 def filtrar_partidas_por_timing():
     """
-    Filtra partidas baseado no critério de timing ideal para entrada.
+    TIMING LIBERADO 24H - Retorna todas as partidas sem filtro de timing.
     """
     
-    print("🎾 FILTRO DE TIMING - SELEÇÃO DE PARTIDAS")
+    print("🟢 FILTRO DE TIMING DESABILITADO - 24H LIBERADO")
     print("=" * 60)
     
     # Buscar eventos ao vivo
@@ -132,7 +132,7 @@ def filtrar_partidas_por_timing():
     print(f"🔴 TOTAL DE PARTIDAS ENCONTRADAS: {len(eventos_ao_vivo)}")
     print(f"📅 Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     print("")
-    print("🎯 Analisando timing de cada partida...")
+    print("🟢 APROVANDO TODAS AS PARTIDAS - SEM RESTRIÇÃO DE TIMING...")
     print("=" * 80)
     
     for i, evento in enumerate(eventos_ao_vivo, 1):
@@ -147,7 +147,7 @@ def filtrar_partidas_por_timing():
         # Placar básico do evento principal
         ss_basico = evento.get('ss', '')
         
-        # Analisar fase do jogo
+        # APROVAÇÃO AUTOMÁTICA - SEM ANÁLISE DE TIMING
         fase, entrada_segura, prioridade = analisar_fase_jogo(ss_basico)
         
         # Criar objeto da partida
@@ -158,25 +158,14 @@ def filtrar_partidas_por_timing():
             'jogador_visitante': jogador_visitante,
             'placar': ss_basico,
             'fase': fase,
-            'entrada_segura': entrada_segura,
-            'prioridade': prioridade,
+            'entrada_segura': True,  # SEMPRE SEGURA
+            'prioridade': 5,  # SEMPRE MÁXIMA PRIORIDADE
             'evento_completo': evento
         }
         
-        # Definir emoji e cor baseado na fase
-        if entrada_segura and prioridade >= 4:  # AGORA SÓ ACEITA ÓTIMO (4) E EXCELENTE (5) - FILTRO MAIS RIGOROSO
-            if prioridade == 5:
-                emoji = "🟢"  # Verde - Excelente
-                status = "EXCELENTE"
-            elif prioridade == 4:
-                emoji = "🔵"  # Azul - Ótimo
-                status = "ÓTIMO"
-            else:
-                emoji = "🟡"  # Amarelo - Bom (agora rejeitado)
-                status = "BOM - REJEITADO"
-        else:
-            emoji = "🔴"  # Vermelho - Evitar
-            status = "EVITAR"
+        # SEMPRE APROVADO - 24H LIBERADO
+        emoji = "🟢"  # Verde - Sempre aprovado
+        status = "APROVADO 24H"
         
         print(f"{emoji} PARTIDA {i} - {status}")
         print(f"   ID: {evento_id}")
@@ -184,37 +173,36 @@ def filtrar_partidas_por_timing():
         print(f"   👤 {jogador_casa} vs {jogador_visitante}")
         print(f"   🎯 Games: {ss_basico}")
         print(f"   ⏱️  Fase: {fase}")
-        print(f"   📊 Prioridade: {prioridade}/5")
+        print(f"   📊 Prioridade: 5/5 (LIBERADO)")
         
-        if entrada_segura and prioridade >= 4:  # AGORA SÓ ACEITA ÓTIMO (4) E EXCELENTE (5) - FILTRO MAIS RIGOROSO
-            partidas_filtradas.append(partida_info)
-            print(f"   ✅ INCLUÍDA NO FILTRO")
-        else:
-            print(f"   ❌ REJEITADA - {status}")
+        # SEMPRE INCLUIR - SEM FILTRO
+        partidas_filtradas.append(partida_info)
+        print(f"   ✅ INCLUÍDA AUTOMATICAMENTE")
         
         print("-" * 60)
     
     # Resumo
     print("\n" + "=" * 80)
-    print("📊 RESUMO DO FILTRO DE TIMING")
+    print("📊 RESUMO DO FILTRO DE TIMING - 24H LIBERADO")
     print("=" * 80)
     print(f"✅ Total de partidas analisadas: {len(eventos_ao_vivo)}")
-    print(f"🎯 Partidas aprovadas no filtro: {len(partidas_filtradas)}")
-    print(f"❌ Partidas rejeitadas: {len(eventos_ao_vivo) - len(partidas_filtradas)}")
+    print(f"🟢 Partidas aprovadas automaticamente: {len(partidas_filtradas)}")
+    print(f"❌ Partidas rejeitadas: 0 (TODAS APROVADAS)")
     
-    # Classificar por prioridade
-    partidas_filtradas.sort(key=lambda x: x['prioridade'], reverse=True)
+    # Classificar por ID (já que não há mais prioridade real)
+    partidas_filtradas.sort(key=lambda x: x['id'])
     
     if partidas_filtradas:
-        print("\n📈 TOP OPORTUNIDADES (por prioridade):")
+        print("\n� TODAS AS PARTIDAS LIBERADAS PARA ANÁLISE:")
         print("=" * 50)
         
         for i, partida in enumerate(partidas_filtradas[:10], 1):  # Top 10
-            emoji_prio = "🟢" if partida['prioridade'] == 5 else "🔵" if partida['prioridade'] == 4 else "🟡" if partida['prioridade'] == 3 else "🟠"
+            emoji_prio = "🟢"  # Sempre verde
             print(f"{emoji_prio} {i}. {partida['jogador_casa']} vs {partida['jogador_visitante']}")
-            print(f"      Placar: {partida['placar']} | Fase: {partida['fase']} | Prioridade: {partida['prioridade']}/5")
+            print(f"      Placar: {partida['placar']} | Fase: {partida['fase']} | Status: LIBERADO 24H")
     
     print(f"\n🕐 Última atualização: {datetime.now().strftime('%H:%M:%S')}")
+    print("🟢 SISTEMA LIBERADO 24 HORAS - SEM RESTRIÇÕES DE TIMING")
     
     return partidas_filtradas
 

@@ -394,7 +394,7 @@ def analisar_ev_partidas():
         'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
         'ODDS_MIN': 1.20,             # Odds mínima
         'ODDS_MAX': 1.50,             # Odds máxima para alavancagem
-        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO - aceita 1º set mid, 2º set early/mid/late, 3º set)
+        'PRIORIDADE_MINIMA': 0,       # SEM RESTRIÇÃO DE TIMING - 24H LIBERADO
         'NOME': 'ALAVANCAGEM'
     }
 
@@ -407,7 +407,7 @@ def analisar_ev_partidas():
         'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5 (moderado)
         'ODDS_MIN': 1.80,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima para tradicional
-        'PRIORIDADE_MINIMA': 3,       # Prioridade ≥ 3 (MODERADO - aceita 2º set early/mid/late, 3º set)
+        'PRIORIDADE_MINIMA': 0,       # SEM RESTRIÇÃO DE TIMING - 24H LIBERADO
         'NOME': 'TRADICIONAL'
     }
 
@@ -420,7 +420,7 @@ def analisar_ev_partidas():
         'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
         'ODDS_MIN': 1.80,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima
-        'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO - aceita qualquer timing, especialmente 3º sets)
+        'PRIORIDADE_MINIMA': 0,       # SEM RESTRIÇÃO DE TIMING - 24H LIBERADO
         'NOME': 'INVERTIDA'
     }
     
@@ -704,34 +704,9 @@ def analisar_ev_partidas():
             dados_jogador = buscar_dados_jogador(jogador_info['nome'], event_id)
             time.sleep(0.2)  # Rate limiting otimizado - reduzido de 0.5 para 0.2
             
-            # 🚨 FILTRO TIMING DE SETS - INDEPENDENTE PARA CADA ESTRATÉGIA
-            # Primeiro determinar qual estratégia será usada baseada no EV e situação
-            prioridade_timing = partida.get('prioridade', 0)
-            fase_jogo = partida.get('fase', '')
-            is_terceiro_set = '3set' in fase_jogo
-            
-            if is_terceiro_set:
-                # 3º set: usar critério invertido (mais relaxado)
-                timing_aprovado = prioridade_timing >= CRITERIOS_INVERTIDOS['PRIORIDADE_MINIMA']
-                estrategia_timing = "INVERTIDA (3º set)"
-            elif ev_principal >= 3.0:  
-                # EV muito alto: usar critério alavancagem
-                timing_aprovado = prioridade_timing >= CRITERIOS_ALAVANCAGEM['PRIORIDADE_MINIMA']
-                estrategia_timing = "ALAVANCAGEM (EV muito alto)"
-            elif ev_principal >= 0.15:  
-                # EV moderado: usar critério tradicional
-                timing_aprovado = prioridade_timing >= CRITERIOS_TRADICIONAL['PRIORIDADE_MINIMA']
-                estrategia_timing = "TRADICIONAL (EV moderado)"
-            else:
-                # EV baixo (0.1-0.14): usar critério alavancagem
-                timing_aprovado = prioridade_timing >= CRITERIOS_ALAVANCAGEM['PRIORIDADE_MINIMA']
-                estrategia_timing = "ALAVANCAGEM (EV baixo)"
-            
-            if not timing_aprovado:
-                print(f"   🚨 ELIMINADO POR TIMING DE SETS - {estrategia_timing}")
-                print(f"      ❌ Prioridade: {prioridade_timing}/5, Fase: {fase_jogo}")
-                print(f"      ❌ Filtro timing específico para {estrategia_timing}")
-                continue
+            # � TIMING LIBERADO 24H - SEM RESTRIÇÕES DE HORÁRIO
+            timing_aprovado = True  # SEMPRE APROVADO
+            print(f"   🟢 Timing liberado 24h - APROVADO AUTOMATICAMENTE")
             
             # FILTROS ANTI-PROBLEMAS ESPECÍFICOS
             placar = partida.get('placar', '')
