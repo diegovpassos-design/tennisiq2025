@@ -34,28 +34,44 @@ if sys.platform == "win32":
 
 from datetime import datetime, timedelta, timezone
 
-# Importar logger formatado
+# Importar sistemas de rate limiting e logging otimizado
+try:
+    from ..utils.rate_limiter import api_rate_limiter
+    from ..utils.logger_producao import logger_prod
+    RATE_LIMITER_DISPONIVEL = True
+    print("✅ Rate Limiter e Logger Produção carregados")
+except ImportError:
+    print("⚠️ Rate Limiter não disponível - usando fallback")
+    class RateLimiterFallback:
+        def wait_if_needed(self): pass
+        def register_request(self): pass
+        def register_429_error(self): pass
+        def can_make_request(self): return True
+        def get_stats(self): return {'requests_last_hour': 0}
+    
+    class LoggerFallback:
+        def log(self, cat, msg, force=False): print(msg)
+        def error(self, msg, det=None): print(f"� {msg}")
+        def warning(self, msg): print(f"⚠️ {msg}")
+        def info(self, msg): print(f"ℹ️ {msg}")
+        def success(self, msg): print(f"✅ {msg}")
+        def ciclo_inicio(self, num): print(f"🔄 Ciclo {num}")
+        def oportunidade_encontrada(self, jog, ev): print(f"🎯 {jog} (EV: {ev})")
+        def stats_ciclo(self, p, a, o, r): print(f"� {p} partidas | {a} timing OK")
+        def rate_limit_429(self, url): print(f"🚨 Rate Limit: {url}")
+        def finalizar(self): pass
+    
+    api_rate_limiter = RateLimiterFallback()
+    logger_prod = LoggerFallback()
+    RATE_LIMITER_DISPONIVEL = False
+
+# Importar logger formatado como fallback
 try:
     from ..utils.logger_formatado import logger_formatado
     LOGGER_FORMATADO_DISPONIVEL = True
-    print("✅ Logger formatado carregado - Logs organizados ativados")
 except ImportError:
-    # Fallback caso não consiga importar
-    class LoggerFallback:
-        def set_verbosidade(self, nivel): pass
-        def log_inicio_ciclo(self, ciclo): print(f"🔄 Ciclo {ciclo}")
-        def log_coleta_dados(self, total, aprovadas, requests=0): print(f"📡 {total} partidas • {aprovadas} timing OK")
-        def log_partidas_prioritarias(self, partidas): pass
-        def log_analise_filtros(self, resultados): pass
-        def log_oportunidades_encontradas(self, oportunidades): pass
-        def log_resumo_ciclo(self, stats): print(f"📈 Ciclo finalizado")
-        def log_erro(self, msg, detalhes=None): print(f"🚨 {msg}")
-        def log_aviso(self, msg): print(f"⚠️ {msg}")
-        def log_debug(self, msg): pass
-    
     logger_formatado = LoggerFallback()
     LOGGER_FORMATADO_DISPONIVEL = False
-    print("⚠️ Logger formatado não disponível - usando fallback")
 
 # Importações condicionais baseadas no contexto de execução
 try:
@@ -583,7 +599,11 @@ class TennisIQBot:
             pass
     
     def buscar_odds_evento(self, event_id):
-        """Busca as odds de um evento específico usando a mesma estrutura do partidas.py."""
+        """Busca as odds de um evento específico com rate limiting."""
+        # Verificar rate limiting
+        if not api_rate_limiter.can_make_request():
+            api_rate_limiter.wait_if_needed()
+        
         url = f"{self.base_url}/v3/event/odds"
         params = {
             'event_id': event_id,
@@ -591,8 +611,18 @@ class TennisIQBot:
         }
         
         try:
-            self.requests_contador += 1  # Incrementar contador de requests
-            response = requests.get(url, params=params, timeout=3)  # Reduzido de 5 para 3 segundos
+            # Registrar requisição
+            api_rate_limiter.register_request()
+            self.requests_contador += 1
+            
+            response = requests.get(url, params=params, timeout=3)
+            
+            # Verificar se é erro 429
+            if response.status_code == 429:
+                api_rate_limiter.register_429_error()
+                logger_prod.rate_limit_429(url)
+                return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+            
             response.raise_for_status()
             data = response.json()
             
@@ -609,6 +639,8 @@ class TennisIQBot:
                         latest_odds = odds_data['13_1'][0]
                         
                         if 'home_od' in latest_odds and 'away_od' in latest_odds:
+                            logger_prod.log('DEBUG', f"✅ Odd Casa: {latest_odds.get('home_od')}")
+                            logger_prod.log('DEBUG', f"✅ Odd Visitante: {latest_odds.get('away_od')}")
                             return {
                                 'jogador1_odd': latest_odds.get('home_od', 'N/A'),
                                 'jogador2_odd': latest_odds.get('away_od', 'N/A')
@@ -616,21 +648,30 @@ class TennisIQBot:
             
             return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
             
+        except requests.exceptions.RequestException as e:
+            if "429" in str(e):
+                api_rate_limiter.register_429_error()
+                logger_prod.error(f"Erro ao buscar odds do evento {event_id}: {e}")
+            else:
+                logger_prod.warning(f"Erro de rede ao buscar odds para evento {event_id}")
+            return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
         except Exception as e:
-            print(f"⚠️ Erro ao buscar odds para evento {event_id}: {e}")
+            logger_prod.warning(f"Erro inesperado ao buscar odds para evento {event_id}")
             return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
     
     def coletar_estatisticas_reais(self, event_id):
         """Coleta estatísticas reais dos jogadores usando o extrator personalizado."""
         try:
             if not event_id:
-                print("⚠️ Event ID não disponível para coleta de stats")
+                logger_prod.warning("Event ID não disponível para coleta de stats")
                 return {
                     'stats_jogador1': {},
                     'stats_jogador2': {}
                 }
             
-            print(f"📊 Coletando estatísticas reais para evento {event_id}...")
+            logger_prod.log('DEBUG', f"📊 Coletando estatísticas reais para evento {event_id}...")
+            
+            # O extrator já deve usar o rate limiter internamente
             stats = extrair_stats_completas(event_id, self.api_key, self.base_url)
             
             if stats and stats.get('stats_jogador1') and stats.get('stats_jogador2'):
@@ -642,10 +683,10 @@ class TennisIQBot:
                 j2_total = sum(j2_stats.values())
                 
                 if j1_total > 0 or j2_total > 0:
-                    print(f"✅ Estatísticas coletadas: J1 Total={j1_total}, J2 Total={j2_total}")
+                    logger_prod.log('DEBUG', f"✅ Estatísticas coletadas: J1 Total={j1_total}, J2 Total={j2_total}")
                     return stats
                 else:
-                    print("⚠️ Estatísticas coletadas estão vazias")
+                    logger_prod.warning("Estatísticas coletadas estão vazias")
             
             return {
                 'stats_jogador1': {},
@@ -653,7 +694,7 @@ class TennisIQBot:
             }
             
         except Exception as e:
-            print(f"❌ Erro ao coletar estatísticas reais: {e}")
+            logger_prod.error(f"Erro ao coletar estatísticas reais: {e}")
             return {
                 'stats_jogador1': {},
                 'stats_jogador2': {}
@@ -1969,21 +2010,18 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
     
     def executar_monitoramento(self):
         """Executa o ciclo principal de monitoramento 24h."""
-        print("🎾 TennisIQ Bot - Iniciando Monitoramento 24h...")
-        print("=" * 60)
+        logger_prod.success("TennisIQ Bot - Iniciando Monitoramento 24h...")
         
-        # Configurar verbosidade do logger (MINIMAL, NORMAL, DEBUG)
-        logger_formatado.set_verbosidade("NORMAL")  # Logs organizados por estratégia
+        # Configurar verbosidade baseada no ambiente
+        if LOGGER_FORMATADO_DISPONIVEL:
+            logger_formatado.set_verbosidade("MINIMAL" if logger_prod.is_production else "NORMAL")
         
         # Enviar notificação de ativação
         self.notificar_ativacao()
         
-        print("🤖 Bot ativo - Monitorando oportunidades 24/7")
-        print("💡 Pressione Ctrl+C para parar o bot")
-        print("🔄 Verificações a cada 45 segundos")  # Acelerado de 1 minuto para 45s
-        print("⚠️ Rate limiting: 3.600 requests/hora (60/minuto)")
-        print("📊 Estratégia: Análise otimizada para economizar API")
-        print("=" * 60)
+        logger_prod.info("Bot ativo - Monitorando oportunidades 24/7")
+        logger_prod.info("Verificações a cada 45 segundos")
+        logger_prod.info("Rate limiting aplicado para API")
         
         contador_ciclos = 0
         contador_oportunidades_total = 0
@@ -1992,25 +2030,27 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             try:
                 contador_ciclos += 1
                 agora = datetime.now()
-                agora_str = agora.strftime("%H:%M:%S")
-                data_str = agora.strftime("%d/%m/%Y")
                 
                 # Limpar cache antigo a cada ciclo
                 self.limpar_cache_antigo()
                 
                 # Resetar contador de requests a cada hora
                 if agora.hour != self.hora_atual:
-                    logger_formatado.log_aviso(f"Nova hora detectada - Resetando contador API (anterior: {self.requests_contador})")
+                    stats = api_rate_limiter.get_stats()
+                    logger_prod.info(f"Nova hora - Requests última hora: {stats['requests_last_hour']}")
                     self.requests_contador = 0
                     self.hora_atual = agora.hour
                 
-                # === INÍCIO DO CICLO COM LOGGER FORMATADO ===
-                logger_formatado.log_inicio_ciclo(contador_ciclos)
+                # === INÍCIO DO CICLO ===
+                logger_prod.ciclo_inicio(contador_ciclos)
+                
+                # Rate limiting stats
+                rate_stats = api_rate_limiter.get_stats()
                 
                 # Atualizar status do bot no dashboard
                 dashboard_logger.atualizar_status_bot(
                     ativo=True,
-                    requests_restantes=3600 - self.requests_contador,
+                    requests_restantes=3600 - rate_stats['requests_last_hour'],
                     proxima_verificacao=(agora + timedelta(seconds=45)).isoformat()
                 )
                 
@@ -2064,82 +2104,102 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     total_oportunidades = len(oportunidades)
                     contador_oportunidades_total += total_oportunidades
                     
-                    # Converter oportunidades para formato do logger
-                    oportunidades_formatadas = []
+                    # Log otimizado de oportunidades
                     for op in oportunidades:
-                        # Estimar odd baseado no EV (Expected Value)
                         ev = op.get('ev', 0)
-                        momentum = op.get('momentum', 70)
-                        
-                        # Estimativa de odd baseada no EV e momentum
-                        if ev > 0.3:
-                            odd_estimada = 2.0 + (ev * 0.5)  # EV alto = odd maior
-                        elif ev > 0.15:
-                            odd_estimada = 1.8 + (ev * 1.0)
-                        else:
-                            odd_estimada = 1.5 + (momentum / 50)  # Baseado no momentum
-                        
-                        # Garantir que está no range esperado
-                        odd_estimada = max(1.2, min(3.0, odd_estimada))
-                        
-                        oportunidades_formatadas.append({
-                            'jogador': op.get('jogador', 'N/A'),
-                            'odd': round(odd_estimada, 2),
-                            'estrategia': 'RIGOROSA',
-                            'confianca': min(90, max(60, int(momentum)))  # Baseado no momentum
-                        })
+                        jogador = op.get('jogador', 'N/A')
+                        logger_prod.oportunidade_encontrada(jogador, ev)
                     
-                    logger_formatado.log_oportunidades_encontradas(oportunidades_formatadas)
+                    if LOGGER_FORMATADO_DISPONIVEL:
+                        # Converter oportunidades para formato do logger formatado
+                        oportunidades_formatadas = []
+                        for op in oportunidades:
+                            ev = op.get('ev', 0)
+                            momentum = op.get('momentum', 70)
+                            
+                            # Estimativa de odd baseada no EV e momentum
+                            if ev > 0.3:
+                                odd_estimada = 2.0 + (ev * 0.5)
+                            elif ev > 0.15:
+                                odd_estimada = 1.8 + (ev * 1.0)
+                            else:
+                                odd_estimada = 1.5 + (momentum / 50)
+                            
+                            odd_estimada = max(1.2, min(3.0, odd_estimada))
+                            
+                            oportunidades_formatadas.append({
+                                'jogador': op.get('jogador', 'N/A'),
+                                'odd': round(odd_estimada, 2),
+                                'estrategia': 'RIGOROSA',
+                                'confianca': min(90, max(60, int(momentum)))
+                            })
+                        
+                        logger_formatado.log_oportunidades_encontradas(oportunidades_formatadas)
+                    
                     self.notificar_oportunidade(oportunidades)
                 else:
-                    logger_formatado.log_oportunidades_encontradas([])
+                    if LOGGER_FORMATADO_DISPONIVEL:
+                        logger_formatado.log_oportunidades_encontradas([])
                 
-                # Verificar resultados das apostas a cada 2 ciclos (~1.5 minutos) - AUTOMÁTICO E RÁPIDO
-                if contador_ciclos % 2 == 0:  # Mudado de 3 para 2 ciclos
-                    logger_formatado.log_debug("Verificando resultados automaticamente (somente por ID)...")
+                # Verificar resultados das apostas (reduzido)
+                if contador_ciclos % 2 == 0:
+                    logger_prod.log('DEBUG', "Verificando resultados automaticamente...")
                     self.verificar_resultados_automatico()
                 
-                # Verificar se é hora de enviar relatórios (a cada ciclo)
+                # Verificar se é hora de enviar relatórios
                 self.verificar_horario_relatorios()
                 
                 # === RESUMO DO CICLO ===
-                stats_ciclo = {
-                    'partidas_analisadas': total_partidas_real,
-                    'timing_aprovadas': aprovadas_timing_real,
-                    'taxa_timing': (aprovadas_timing_real / total_partidas_real * 100) if total_partidas_real > 0 else 0,
-                    'oportunidades_encontradas': len(oportunidades) if oportunidades else 0,
-                    'taxa_conversao': (len(oportunidades) / aprovadas_timing_real * 100) if aprovadas_timing_real > 0 else 0,
-                    'requests_usados': requests_usados,
-                    'proximo_ciclo': 45,
-                    'sistema_ativo': True
-                }
+                requests_usados = self.requests_contador - requests_inicio_ciclo
+                rate_stats = api_rate_limiter.get_stats()
                 
-                logger_formatado.log_resumo_ciclo(stats_ciclo)
+                # Log de estatísticas do ciclo
+                logger_prod.stats_ciclo(
+                    total_partidas_real if 'total_partidas_real' in locals() else 0,
+                    aprovadas_timing_real if 'aprovadas_timing_real' in locals() else 0,
+                    len(oportunidades) if oportunidades else 0,
+                    rate_stats['requests_last_hour']
+                )
                 
-                # Rate limiting inteligente baseado no limite real - OTIMIZADO
-                requests_por_hora = self.requests_contador * (3600 / ((contador_ciclos * 5 * 60) if contador_ciclos > 0 else 1))
+                if LOGGER_FORMATADO_DISPONIVEL:
+                    stats_ciclo = {
+                        'partidas_analisadas': total_partidas_real if 'total_partidas_real' in locals() else 0,
+                        'timing_aprovadas': aprovadas_timing_real if 'aprovadas_timing_real' in locals() else 0,
+                        'taxa_timing': (aprovadas_timing_real / total_partidas_real * 100) if 'total_partidas_real' in locals() and total_partidas_real > 0 else 0,
+                        'oportunidades_encontradas': len(oportunidades) if oportunidades else 0,
+                        'taxa_conversao': (len(oportunidades) / aprovadas_timing_real * 100) if 'aprovadas_timing_real' in locals() and aprovadas_timing_real > 0 else 0,
+                        'requests_usados': requests_usados,
+                        'proximo_ciclo': 45,
+                        'sistema_ativo': True
+                    }
+                    logger_formatado.log_resumo_ciclo(stats_ciclo)
                 
-                if requests_por_hora > 3000:  # 83% do limite
-                    logger_formatado.log_aviso("CRÍTICO: Muito próximo do limite da API!")
-                    tempo_espera = 90  # Reduzido de 120 para 90 segundos
-                elif requests_por_hora > 2500:  # 69% do limite
-                    logger_formatado.log_aviso("ATENÇÃO: Aproximando do limite da API")
-                    tempo_espera = 75  # Aumentado para reduzir rate limit
-                elif requests_por_hora > 2000:  # 56% do limite
-                    tempo_espera = 65  # Aumentado para reduzir rate limit
+                # Rate limiting inteligente
+                requests_hora = rate_stats['requests_last_hour']
+                
+                if requests_hora > 1500:  # 83% do limite (1800)
+                    logger_prod.warning("CRÍTICO: Muito próximo do limite da API!")
+                    tempo_espera = 90
+                elif requests_hora > 1200:  # 67% do limite
+                    logger_prod.warning("ATENÇÃO: Aproximando do limite da API")
+                    tempo_espera = 75
+                elif requests_hora > 900:  # 50% do limite
+                    tempo_espera = 65
                 else:
-                    tempo_espera = 55  # Aumentado para reduzir rate limit
+                    tempo_espera = 55
                 
-                # Sleep direto para reduzir logs e rate limit
+                # Sleep para próximo ciclo
                 time.sleep(tempo_espera)
                 
             except KeyboardInterrupt:
-                # Ctrl+C já é tratado pelo signal_handler
                 break
             except Exception as e:
-                logger_formatado.log_erro(f"Erro durante monitoramento: {e}")
-                logger_formatado.log_aviso("Tentando novamente em 15 segundos...")
-                time.sleep(15)  # Reduzido de 30 para 15 segundos para recuperação mais rápida
+                logger_prod.error(f"Erro durante monitoramento: {e}")
+                logger_prod.warning("Tentando novamente em 15 segundos...")
+                time.sleep(15)
+        
+        # Finalizar logger
+        logger_prod.finalizar()
 
 def main():
     """Função principal do bot."""

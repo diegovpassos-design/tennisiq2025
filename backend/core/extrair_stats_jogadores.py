@@ -13,6 +13,26 @@ import os
 # Configurar caminhos para nova estrutura
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
+# Importar rate limiter
+try:
+    from ..utils.rate_limiter import api_rate_limiter
+    from ..utils.logger_producao import logger_prod
+    RATE_LIMITER_DISPONIVEL = True
+except ImportError:
+    # Fallback se não conseguir importar
+    class RateLimiterFallback:
+        def wait_if_needed(self): pass
+        def register_request(self): pass
+        def register_429_error(self): pass
+    
+    class LoggerFallback:
+        def error(self, msg): print(f"🚨 {msg}")
+        def warning(self, msg): print(f"⚠️ {msg}")
+    
+    api_rate_limiter = RateLimiterFallback()
+    logger_prod = LoggerFallback()
+    RATE_LIMITER_DISPONIVEL = False
+
 def carregar_config():
     """Carrega configurações da API"""
     try:
@@ -21,7 +41,7 @@ def carregar_config():
             config = json.load(f)
             return config['api_key'], config['api_base_url']
     except Exception as e:
-        print(f"[ERROR] Erro ao carregar configurações: {e}")
+        logger_prod.error(f"Erro ao carregar configurações: {e}")
         return None, None
 
 def extrair_stats_completas(event_id, api_key=None, base_url=None):
@@ -39,11 +59,15 @@ def extrair_stats_completas(event_id, api_key=None, base_url=None):
         api_key, base_url = carregar_config()
         
     if not api_key or not base_url:
-        print("[ERROR] Configurações da API não encontradas")
+        logger_prod.error("Configurações da API não encontradas")
         return {
             'stats_jogador1': {},
             'stats_jogador2': {}
         }
+    
+    # Verificar rate limiting
+    if RATE_LIMITER_DISPONIVEL:
+        api_rate_limiter.wait_if_needed()
     
     url = f"{base_url}/v3/event/view"
     params = {
@@ -67,7 +91,22 @@ def extrair_stats_completas(event_id, api_key=None, base_url=None):
     }
     
     try:
+        # Registrar requisição
+        if RATE_LIMITER_DISPONIVEL:
+            api_rate_limiter.register_request()
+        
         response = requests.get(url, params=params, timeout=10)
+        
+        # Verificar se é erro 429
+        if response.status_code == 429:
+            if RATE_LIMITER_DISPONIVEL:
+                api_rate_limiter.register_429_error()
+            logger_prod.error(f"Rate limit atingido ao extrair stats do evento {event_id}")
+            return {
+                'stats_jogador1': stats_vazias.copy(),
+                'stats_jogador2': stats_vazias.copy()
+            }
+        
         response.raise_for_status()
         data = response.json()
         

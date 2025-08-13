@@ -1,0 +1,29 @@
+{
+    "logging": {
+        "production_level": "MINIMAL",
+        "development_level": "NORMAL",
+        "debug_level": "DEBUG",
+        "max_logs_per_minute": 10,
+        "rate_limit_logging": true,
+        "suppress_similar_logs": true
+    },
+    "rate_limiting": {
+        "api_requests_per_minute": 30,
+        "api_requests_per_hour": 1800,
+        "backoff_time_429": 60,
+        "max_retries": 3,
+        "timeout_seconds": 10
+    },
+    "performance": {
+        "cycle_interval_seconds": 45,
+        "results_check_every_cycles": 2,
+        "cache_cleanup_cycles": 5,
+        "dashboard_update_interval": 30
+    },
+    "railway_optimizations": {
+        "reduce_verbose_logs": true,
+        "batch_similar_requests": true,
+        "aggressive_rate_limiting": true,
+        "minimize_print_statements": true
+    }
+}

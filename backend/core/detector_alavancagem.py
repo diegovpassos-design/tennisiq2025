@@ -18,10 +18,10 @@ from backend.utils.logger_formatado import logger_formatado
 
 class DetectorAlavancagem:
     def __init__(self):
-        # Critérios específicos para alavancagem
-        self.odd_minima = 1.20
-        self.odd_maxima = 1.40
-        self.momentum_minimo = 65  # Para confirmar que é melhor estatisticamente
+        # Critérios específicos para alavancagem OTIMIZADOS (baseados em análise de dados reais)
+        self.odd_minima = 1.15  # Era 1.20 - expandido para capturar mais oportunidades
+        self.odd_maxima = 1.60  # Era 1.40 - expandido significativamente (+150% range)
+        self.momentum_minimo = 60  # Era 65% - reduzido para ser mais realista
         
     def _converter_odd_float(self, odd_value):
         """Converte odd para float de forma segura"""
@@ -66,11 +66,11 @@ class DetectorAlavancagem:
                     'motivo': "Jogador não ganhou o primeiro set"
                 }
             
-            # 4. Verificar se está ganhando o segundo set
+            # 4. Verificar se está ganhando ou empatado no segundo set (OTIMIZADO)
             if not self._esta_ganhando_segundo_set(placar, tipo_oportunidade):
                 return {
                     'alavancagem_aprovada': False,
-                    'motivo': "Não está ganhando o segundo set"
+                    'motivo': "Não está ganhando ou empatado no segundo set"
                 }
             
             # 5. Verificar se é melhor estatisticamente (usando momentum da oportunidade)
@@ -159,7 +159,8 @@ class DetectorAlavancagem:
     
     def _esta_ganhando_segundo_set(self, placar, tipo_oportunidade):
         """
-        Verifica se o jogador está ganhando o segundo set
+        Verifica se o jogador está ganhando OU empatado no segundo set
+        OTIMIZADO: Aceita também placar empatado para capturar mais oportunidades
         """
         if not placar or ',' not in placar:
             return False
@@ -177,11 +178,11 @@ class DetectorAlavancagem:
                 away_score = int(away_score.strip())
                 
                 if tipo_oportunidade == 'HOME':
-                    # Jogador HOME está ganhando o segundo set?
-                    return home_score > away_score
+                    # Jogador HOME está ganhando OU empatado no segundo set?
+                    return home_score >= away_score  # MUDANÇA: >= em vez de >
                 else:
-                    # Jogador AWAY está ganhando o segundo set?
-                    return away_score > home_score
+                    # Jogador AWAY está ganhando OU empatado no segundo set?
+                    return away_score >= home_score  # MUDANÇA: >= em vez de >
         except:
             return False
         
