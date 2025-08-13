@@ -340,6 +340,30 @@ def calcular_ev(momentum_score, odd):
     except Exception:
         return 0
 
+def buscar_odds_partida_atual(event_id):
+    """Busca as odds atuais de uma partida específica"""
+    try:
+        # Configurações da API
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'config.json')
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        api_key = config.get('api_key')
+        base_url = config.get('api_base_url', 'https://api.b365api.com')
+        
+        if not api_key:
+            return {'casa': 'N/A', 'visitante': 'N/A'}
+        
+        # Buscar odds usando a função existente
+        odds_info = buscar_odds_evento(event_id, api_key, base_url)
+        
+        return {
+            'casa': odds_info.get('jogador1_odd', 'N/A'),
+            'visitante': odds_info.get('jogador2_odd', 'N/A')
+        }
+    except Exception as e:
+        print(f"⚠️ Erro ao buscar odds da partida {event_id}: {e}")
+        return {'casa': 'N/A', 'visitante': 'N/A'}
+
 def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante):
     """Testa se a partida atende aos critérios da estratégia ALAVANCAGEM"""
     
@@ -387,8 +411,9 @@ def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_princ
         else:
             jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
     
-    # Validações finais
-    odds_jogador = partida.get('odds_casa' if jogador_target['tipo'] == 'HOME' else 'odds_visitante', 'N/A')
+    # Validações finais - buscar odds atuais
+    odds_atuais = buscar_odds_partida_atual(event_id)
+    odds_jogador = odds_atuais['casa'] if jogador_target['tipo'] == 'HOME' else odds_atuais['visitante']
     if odds_jogador != 'N/A':
         try:
             odds_float = float(odds_jogador)
@@ -475,8 +500,9 @@ def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_princ
         else:
             jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
     
-    # Validações finais
-    odds_jogador = partida.get('odds_casa' if jogador_target['tipo'] == 'HOME' else 'odds_visitante', 'N/A')
+    # Validações finais - buscar odds atuais
+    odds_atuais = buscar_odds_partida_atual(event_id)
+    odds_jogador = odds_atuais['casa'] if jogador_target['tipo'] == 'HOME' else odds_atuais['visitante']
     if odds_jogador != 'N/A':
         try:
             odds_float = float(odds_jogador)
@@ -571,8 +597,9 @@ def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_te
         else:
             jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
     
-    # Validações finais
-    odds_jogador = partida.get('odds_casa' if jogador_target['tipo'] == 'HOME' else 'odds_visitante', 'N/A')
+    # Validações finais - buscar odds atuais
+    odds_atuais = buscar_odds_partida_atual(event_id)
+    odds_jogador = odds_atuais['casa'] if jogador_target['tipo'] == 'HOME' else odds_atuais['visitante']
     if odds_jogador != 'N/A':
         try:
             odds_float = float(odds_jogador)
