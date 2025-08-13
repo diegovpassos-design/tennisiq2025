@@ -15,123 +15,44 @@ PRIORIDADES:
 
 import json
 import requests
-import os
 from datetime import datetime
 import re
 
 def buscar_partidas_ao_vivo():
-    """Busca todas as partidas de tênis ao vivo usando API B365."""
+    """Busca todas as partidas de tênis ao vivo."""
     try:
-        # Carregar configuração da API
-        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'config.json')
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-        
-        api_key = config.get('api_key')
-        base_url = config.get('api_base_url', 'https://api.b365api.com')
-        
-        if not api_key:
-            print("❌ API key não encontrada na configuração")
-            return _gerar_dados_simulados()
-        
-        # Endpoint para eventos ao vivo de tênis
-        url = f"{base_url}/v3/events/inplay"
-        params = {
-            'token': api_key,
-            'sport_id': 13  # Tênis
-        }
-        
+        url = "https://d.flashscore.com/x/feed/d_hh_1_8_pt_2_ebgkmz6e"
         headers = {
-            'User-Agent': 'TennisIQ Bot 1.0',
-            'Accept': 'application/json'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Referer': 'https://www.flashscore.pt/'
         }
         
-        print(f"🔄 Buscando partidas ao vivo...")
-        print(f"� API: {base_url}")
-        
-        response = requests.get(url, params=params, headers=headers, timeout=15)
-        print(f"� Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            data = response.json()
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            print(f"❌ Erro HTTP: {response.status_code}")
+            return []
             
-            if data.get('success') == '1':
-                eventos = data.get('results', [])
-                print(f"✅ Sucesso: {len(eventos)} partidas encontradas")
-                
-                # Converter formato B365 para formato interno
-                eventos_convertidos = []
-                for evento in eventos:
-                    evento_convertido = {
-                        'id': evento.get('id', ''),
-                        'league': {'name': evento.get('league', {}).get('name', 'Liga não informada')},
-                        'home': {'name': evento.get('home', {}).get('name', 'Jogador 1')},
-                        'away': {'name': evento.get('away', {}).get('name', 'Jogador 2')},
-                        'ss': evento.get('ss', ''),
-                        'sport_id': 13,  # Tênis na API B365
-                        'time': evento.get('time', ''),
-                        'timer': evento.get('timer', {}),
-                        'stats': evento.get('stats', {})
-                    }
-                    eventos_convertidos.append(evento_convertido)
-                
-                return eventos_convertidos
-            else:
-                error_msg = data.get('error', 'Erro desconhecido')
-                print(f"❌ API Error: {error_msg}")
-                return _gerar_dados_simulados()
-                
-        elif response.status_code == 401:
-            print(f"🔐 Erro de autorização (401) - Verifique a API key")
-            return _gerar_dados_simulados()
-        elif response.status_code == 403:
-            print(f"🚫 Acesso negado (403) - API key inválida")
-            return _gerar_dados_simulados()
-        elif response.status_code == 429:
-            print(f"⏰ Rate limit atingido (429) - Aguarde")
-            return _gerar_dados_simulados()
-        else:
-            print(f"⚠️  Código HTTP: {response.status_code}")
-            return _gerar_dados_simulados()
+        data = response.text
         
-    except FileNotFoundError:
-        print("❌ Arquivo de configuração não encontrado")
-        return _gerar_dados_simulados()
-    except json.JSONDecodeError:
-        print("❌ Erro ao decodificar JSON da API")
-        return _gerar_dados_simulados()
+        # Buscar eventos em JSON
+        eventos = []
+        linhas = data.split('\n')
+        
+        for linha in linhas:
+            if '"id":"' in linha and '"league":' in linha and '"home":' in linha:
+                try:
+                    evento_json = json.loads(linha)
+                    if evento_json.get('sport_id') == 2:  # Tênis
+                        eventos.append(evento_json)
+                except:
+                    continue
+                    
+        return eventos
+        
     except Exception as e:
         print(f"❌ Erro ao buscar partidas: {e}")
-        return _gerar_dados_simulados()
-
-def _gerar_dados_simulados():
-    """Gera dados simulados para teste quando a API não funciona"""
-    return [
-        {
-            'id': 'sim001',
-            'league': {'name': 'ATP Masters'},
-            'home': {'name': 'Djokovic'},
-            'away': {'name': 'Nadal'},
-            'ss': '6-4, 3-2',
-            'sport_id': 13  # Tênis na API B365
-        },
-        {
-            'id': 'sim002', 
-            'league': {'name': 'WTA Tour'},
-            'home': {'name': 'Williams'},
-            'away': {'name': 'Sharapova'},
-            'ss': '1-2',
-            'sport_id': 13  # Tênis na API B365
-        },
-        {
-            'id': 'sim003',
-            'league': {'name': 'ATP Challenger'},
-            'home': {'name': 'Federer'},
-            'away': {'name': 'Murray'},
-            'ss': '6-3, 2-6, 4-3',
-            'sport_id': 13  # Tênis na API B365
-        }
-    ]
+        return []
 
 def analisar_fase_jogo(placar_str):
     """

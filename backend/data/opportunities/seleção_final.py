@@ -458,6 +458,7 @@ def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_princ
         'DOUBLE_FAULTS_MAXIMO': 8,
         'ODDS_MIN': 1.20,
         'ODDS_MAX': 1.50,
+        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
         'NOME': 'ALAVANCAGEM'
     }
     
@@ -595,6 +596,7 @@ def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_princ
         'DOUBLE_FAULTS_MAXIMO': 5,
         'ODDS_MIN': 1.80,
         'ODDS_MAX': 2.50,
+        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
         'NOME': 'TRADICIONAL'
     }
     
@@ -702,6 +704,7 @@ def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_te
         'DOUBLE_FAULTS_MAXIMO': 6,
         'ODDS_MIN': 1.80,
         'ODDS_MAX': 2.50,
+        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
         'NOME': 'INVERTIDA'
     }
     
