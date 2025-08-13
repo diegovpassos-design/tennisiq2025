@@ -1,7 +1,25 @@
 """
 FILTRO DE TIMING RIGOROSO PARA TENNIS IQ
-
-Sistema que filtra partidas baseado em timing e prioridade de entrada.
+        print(f"🔄 Buscando partidas ao vivo...")
+        print(f"📡 API: {base_url}")
+        print(f"🔑 Token: {api_key[:10]}...{api_key[-5:]}")
+        print(f"🎾 Sport ID: {params['sport_id']}")
+        
+        response = requests.get(url, params=params, headers=headers, timeout=15)
+        print(f"📊 Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                print(f"🔍 Response keys: {list(data.keys())}")
+                
+                if data.get('success') == '1' or data.get('success') == 1:
+                    eventos = data.get('results', [])
+                    print(f"✅ Sucesso: {len(eventos)} partidas encontradas")
+                    
+                    if len(eventos) == 0:
+                        print("⚠️  Nenhuma partida de tênis ao vivo no momento")
+                        return [] filtra partidas baseado em timing e prioridade de entrada.
 Só aprova partidas com prioridade ≥3 (2º set ou mais avançado).
 
 PRIORIDADES:
@@ -55,7 +73,7 @@ def buscar_partidas_ao_vivo():
         if response.status_code == 200:
             data = response.json()
             
-            if data.get('success') == '1':
+            if data.get('success') in ['1', 1]:
                 eventos = data.get('results', [])
                 print(f"✅ Sucesso: {len(eventos)} partidas encontradas")
                 
@@ -79,30 +97,36 @@ def buscar_partidas_ao_vivo():
             else:
                 error_msg = data.get('error', 'Erro desconhecido')
                 print(f"❌ API Error: {error_msg}")
-                return _gerar_dados_simulados()
+                print(f"🔍 Full response: {data}")
+                return []
                 
         elif response.status_code == 401:
             print(f"🔐 Erro de autorização (401) - Verifique a API key")
-            return _gerar_dados_simulados()
+            return []
         elif response.status_code == 403:
             print(f"🚫 Acesso negado (403) - API key inválida")
-            return _gerar_dados_simulados()
+            return []
         elif response.status_code == 429:
             print(f"⏰ Rate limit atingido (429) - Aguarde")
-            return _gerar_dados_simulados()
+            return []
         else:
             print(f"⚠️  Código HTTP: {response.status_code}")
-            return _gerar_dados_simulados()
+            try:
+                error_text = response.text[:200]
+                print(f"🔍 Response: {error_text}...")
+            except:
+                pass
+            return []
         
     except FileNotFoundError:
         print("❌ Arquivo de configuração não encontrado")
-        return _gerar_dados_simulados()
+        return []
     except json.JSONDecodeError:
         print("❌ Erro ao decodificar JSON da API")
-        return _gerar_dados_simulados()
+        return []
     except Exception as e:
         print(f"❌ Erro ao buscar partidas: {e}")
-        return _gerar_dados_simulados()
+        return []
 
 def _gerar_dados_simulados():
     """Gera dados simulados para teste quando a API não funciona"""
