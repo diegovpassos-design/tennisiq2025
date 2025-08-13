@@ -392,6 +392,9 @@ def analisar_ev_partidas():
         'MOMENTUM_SCORE_MINIMO': 40,  # MS ≥ 40% (RELAXADO)
         'WIN_1ST_SERVE_MINIMO': 50,   # W1S ≥ 50% (RELAXADO)
         'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
+        'TEMPO_MINIMO': 20,           # Tempo ≥ 20min (MUITO RELAXADO para alavancagem)
+        'ODDS_MIN': 1.15,             # Odds mínima (relaxado)
+        'ODDS_MAX': 1.60,             # Odds máxima para alavancagem
         'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2 (RELAXADO)
         'NOME': 'ALAVANCAGEM'
     }
@@ -403,6 +406,9 @@ def analisar_ev_partidas():
         'MOMENTUM_SCORE_MINIMO': 60,  # MS ≥ 60% (importante para mental)
         'WIN_1ST_SERVE_MINIMO': 60,   # W1S ≥ 60% (importante para mental)
         'DOUBLE_FAULTS_MAXIMO': 4,    # DF ≤ 4 (rigoroso para mental)
+        'TEMPO_MINIMO': 35,           # Tempo ≥ 35min (moderado para mental)
+        'ODDS_MIN': 1.20,             # Odds mínima
+        'ODDS_MAX': 2.50,             # Odds máxima para vantagem mental
         'PRIORIDADE_MINIMA': 3,       # Prioridade ≥ 3
         'NOME': 'VANTAGEM_MENTAL'
     }
@@ -414,6 +420,9 @@ def analisar_ev_partidas():
         'MOMENTUM_SCORE_MINIMO': 45,  # MS ≥ 45% (MUITO RELAXADO)
         'WIN_1ST_SERVE_MINIMO': 45,   # W1S ≥ 45% (MUITO RELAXADO)
         'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
+        'TEMPO_MINIMO': 30,           # Tempo ≥ 30min (relaxado para 3º sets)
+        'ODDS_MIN': 1.20,             # Odds mínima
+        'ODDS_MAX': 4.50,             # Odds máxima muito relaxada
         'PRIORIDADE_MINIMA': 2,       # Prioridade ≥ 2
         'NOME': 'INVERTIDA'
     }
@@ -806,8 +815,35 @@ def analisar_ev_partidas():
             except (ValueError, TypeError):
                 filtros_rejeitados.append(f"W1S: dados inválidos ❌")
             
-            # Se passou em TODOS os filtros
-            if len(filtros_aprovados) == 4 and len(filtros_rejeitados) == 0:
+            # 🕒 FILTRO TEMPO INDEPENDENTE PARA CADA ESTRATÉGIA
+            # Simular tempo restante da partida (normalmente viria da API)
+            tempo_estimado = 60 - (partida.get('prioridade', 0) * 10)  # Estimativa baseada na prioridade
+            if tempo_estimado >= criterios['TEMPO_MINIMO']:
+                filtros_aprovados.append(f"TEMPO: {tempo_estimado}min ✅ (min {criterios['TEMPO_MINIMO']}min - {estrategia_tipo})")
+            else:
+                filtros_rejeitados.append(f"TEMPO: {tempo_estimado}min ❌ (min {criterios['TEMPO_MINIMO']}min - {estrategia_tipo})")
+            
+            # ⚠️ FILTRO ODDS INDEPENDENTE PARA CADA ESTRATÉGIA (se disponível)
+            # Determinar a odd específica do jogador baseado no tipo
+            if jogador_info['tipo'] == 'HOME':
+                odds_jogador = partida.get('odds_casa', 'N/A')
+            else:  # AWAY
+                odds_jogador = partida.get('odds_visitante', 'N/A')
+            
+            if odds_jogador != 'N/A':
+                try:
+                    odds_float = float(odds_jogador)
+                    if criterios['ODDS_MIN'] <= odds_float <= criterios['ODDS_MAX']:
+                        filtros_aprovados.append(f"ODDS: {odds_float} ✅ (range {criterios['ODDS_MIN']}-{criterios['ODDS_MAX']} - {estrategia_tipo})")
+                    else:
+                        filtros_rejeitados.append(f"ODDS: {odds_float} ❌ (range {criterios['ODDS_MIN']}-{criterios['ODDS_MAX']} - {estrategia_tipo})")
+                except (ValueError, TypeError):
+                    filtros_rejeitados.append(f"ODDS: {odds_jogador} ❌ (inválida)")
+            else:
+                filtros_rejeitados.append(f"ODDS: N/A ❌ (não disponível)")
+            
+            # Se passou em TODOS os filtros (agora são 7 filtros independentes)
+            if len(filtros_aprovados) == 7 and len(filtros_rejeitados) == 0:
                 oportunidade = {
                     'partida_id': event_id,
                     'liga': partida['liga'],
