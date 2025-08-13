@@ -154,6 +154,10 @@ class TennisIQBot:
         self.detector_alavancagem = DetectorAlavancagem()
         self.apostas_alavancagem = []  # Track separado para apostas de alavancagem
         
+        # NOVO: Cache para odds (reduzir requisições duplicadas)
+        self.cache_odds = {}
+        self.cache_odds_timeout = 45  # 45 segundos de cache
+        
         # Sistema de contabilização de greens seguidos
         self.greens_seguidos = 0
         self.total_greens = 0
@@ -621,7 +625,18 @@ class TennisIQBot:
             pass
     
     def buscar_odds_evento(self, event_id):
-        """Busca as odds de um evento específico com rate limiting."""
+        """Busca as odds de um evento específico com rate limiting e cache."""
+        
+        # Verificar cache primeiro
+        agora = time.time()
+        cache_key = f"odds_{event_id}"
+        
+        if cache_key in self.cache_odds:
+            timestamp, odds_data = self.cache_odds[cache_key]
+            if agora - timestamp < self.cache_odds_timeout:
+                # Cache válido - retornar sem fazer requisição
+                return odds_data
+        
         # Verificar rate limiting
         if not api_rate_limiter.can_make_request():
             api_rate_limiter.wait_if_needed()
@@ -661,14 +676,22 @@ class TennisIQBot:
                         latest_odds = odds_data['13_1'][0]
                         
                         if 'home_od' in latest_odds and 'away_od' in latest_odds:
-                            logger_prod.log('DEBUG', f"✅ Odd Casa: {latest_odds.get('home_od')}")
-                            logger_prod.log('DEBUG', f"✅ Odd Visitante: {latest_odds.get('away_od')}")
-                            return {
+                            odds_result = {
                                 'jogador1_odd': latest_odds.get('home_od', 'N/A'),
                                 'jogador2_odd': latest_odds.get('away_od', 'N/A')
                             }
+                            
+                            # Salvar no cache
+                            self.cache_odds[cache_key] = (agora, odds_result)
+                            
+                            logger_prod.log('DEBUG', f"✅ Odd Casa: {odds_result['jogador1_odd']}")
+                            logger_prod.log('DEBUG', f"✅ Odd Visitante: {odds_result['jogador2_odd']}")
+                            return odds_result
             
-            return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+            # Fallback - salvar no cache também para evitar requisições repetidas
+            fallback_result = {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+            self.cache_odds[cache_key] = (agora, fallback_result)
+            return fallback_result
             
         except requests.exceptions.RequestException as e:
             if "429" in str(e):
@@ -2091,6 +2114,19 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # Reset cache de estratégias para novo ciclo
                 self._estrategias_testadas_cache = {}
                 
+                # Limpar cache de odds antigo (> 45s)
+                agora = time.time()
+                cache_keys_para_remover = []
+                for key, (timestamp, _) in self.cache_odds.items():
+                    if agora - timestamp > self.cache_odds_timeout:
+                        cache_keys_para_remover.append(key)
+                
+                for key in cache_keys_para_remover:
+                    del self.cache_odds[key]
+                
+                if cache_keys_para_remover:
+                    logger_ultra.info(f"🧹 Cache limpo: {len(cache_keys_para_remover)} odds antigas removidas")
+                
                 # Rate limiting stats
                 rate_stats = api_rate_limiter.get_stats()
                 
@@ -2224,19 +2260,28 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     }
                     logger_formatado.log_resumo_ciclo(stats_ciclo)
                 
-                # Rate limiting inteligente
+                # Rate limiting inteligente CORRIGIDO (mais conservador)
                 requests_hora = rate_stats['requests_last_hour']
                 
-                if requests_hora > 1500:  # 83% do limite (1800)
+                # Log de monitoramento detalhado
+                if requests_hora > 600:
+                    logger_ultra.warning(f"⚠️ API Usage: {requests_hora}/1800 ({(requests_hora/1800)*100:.1f}%)")
+                
+                if requests_hora > 1400:  # 78% do limite (1800) - REDUZIDO
                     logger_prod.warning("CRÍTICO: Muito próximo do limite da API!")
-                    tempo_espera = 90
-                elif requests_hora > 1200:  # 67% do limite
+                    logger_ultra.warning(f"🚨 CRÍTICO: {requests_hora}/1800 requests")
+                    tempo_espera = 120  # 2 minutos - AUMENTADO
+                elif requests_hora > 1100:  # 61% do limite - REDUZIDO
                     logger_prod.warning("ATENÇÃO: Aproximando do limite da API")
-                    tempo_espera = 75
-                elif requests_hora > 900:  # 50% do limite
-                    tempo_espera = 65
+                    logger_ultra.warning(f"⚠️ ALTO: {requests_hora}/1800 requests")
+                    tempo_espera = 90   # 1.5 minutos - AUMENTADO
+                elif requests_hora > 800:   # 44% do limite - REDUZIDO
+                    logger_prod.warning("MODERADO: Monitorando uso da API")
+                    tempo_espera = 75   # 1.25 minutos
+                elif requests_hora > 600:   # 33% do limite - NOVO PATAMAR
+                    tempo_espera = 65   # Anteriormente era padrão
                 else:
-                    tempo_espera = 55
+                    tempo_espera = 55   # Padrão mantido
                 
                 # Sleep para próximo ciclo
                 time.sleep(tempo_espera)
