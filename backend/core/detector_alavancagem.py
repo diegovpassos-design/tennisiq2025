@@ -30,7 +30,7 @@ class DetectorAlavancagem:
         except (ValueError, TypeError):
             return 0.0
     
-    def analisar_oportunidade_alavancagem(self, oportunidade_data, placar, odds_data):
+    def analisar_oportunidade_alavancagem(self, oportunidade_data, placar, odds_data, bot_instance=None):
         """
         Analisa se uma oportunidade atende aos critérios de alavancagem
         """
@@ -39,11 +39,16 @@ class DetectorAlavancagem:
             oponente = oportunidade_data.get('oponente', '')
             tipo_oportunidade = oportunidade_data.get('tipo', '')  # HOME ou AWAY
             
-            # Obter odd do jogador da oportunidade
-            if tipo_oportunidade == 'HOME':
-                odd_jogador = self._converter_odd_float(odds_data.get('jogador1_odd', 0))
+            # ✅ CORREÇÃO: Usar função corrigida de mapeamento de odds
+            if bot_instance and hasattr(bot_instance, 'extrair_odd_jogador'):
+                # Usar a função corrigida do bot que mapeia corretamente os nomes
+                odd_jogador = self._converter_odd_float(bot_instance.extrair_odd_jogador(odds_data, jogador_oportunidade))
             else:
-                odd_jogador = self._converter_odd_float(odds_data.get('jogador2_odd', 0))
+                # Fallback para compatibilidade (método antigo - pode ter bug de mapeamento)
+                if tipo_oportunidade == 'HOME':
+                    odd_jogador = self._converter_odd_float(odds_data.get('jogador1_odd', 0))
+                else:
+                    odd_jogador = self._converter_odd_float(odds_data.get('jogador2_odd', 0))
             
             # 1. Verificar se a odd está no range correto (1.20 - 1.40)
             if not (self.odd_minima <= odd_jogador <= self.odd_maxima):

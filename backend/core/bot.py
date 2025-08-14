@@ -658,7 +658,7 @@ class TennisIQBot:
             if response.status_code == 429:
                 api_rate_limiter.register_429_error()
                 logger_prod.rate_limit_429(url)
-                return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+                return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A', 'event_id': event_id}
             
             response.raise_for_status()
             data = response.json()
@@ -678,7 +678,8 @@ class TennisIQBot:
                         if 'home_od' in latest_odds and 'away_od' in latest_odds:
                             odds_result = {
                                 'jogador1_odd': latest_odds.get('home_od', 'N/A'),
-                                'jogador2_odd': latest_odds.get('away_od', 'N/A')
+                                'jogador2_odd': latest_odds.get('away_od', 'N/A'),
+                                'event_id': event_id  # Adicionar event_id para mapeamento correto
                             }
                             
                             # Salvar no cache
@@ -689,7 +690,7 @@ class TennisIQBot:
                             return odds_result
             
             # Fallback - salvar no cache também para evitar requisições repetidas
-            fallback_result = {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+            fallback_result = {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A', 'event_id': event_id}
             self.cache_odds[cache_key] = (agora, fallback_result)
             return fallback_result
             
@@ -699,10 +700,10 @@ class TennisIQBot:
                 logger_prod.error(f"Erro ao buscar odds do evento {event_id}: {e}")
             else:
                 logger_prod.warning(f"Erro de rede ao buscar odds para evento {event_id}")
-            return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+            return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A', 'event_id': event_id}
         except Exception as e:
             logger_prod.warning(f"Erro inesperado ao buscar odds para evento {event_id}")
-            return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
+            return {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A', 'event_id': event_id}
     
     def coletar_estatisticas_reais(self, event_id):
         """Coleta estatísticas reais dos jogadores usando o extrator personalizado."""
@@ -986,10 +987,13 @@ class TennisIQBot:
         
         try:
             if not self.telegram_token:
-                print("⚠️ Token do Telegram não encontrado")
+                erro_msg = "⚠️ Token do Telegram não encontrado"
+                print(erro_msg)
+                logger_prod.error(erro_msg)
                 return False
             
             url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
+            logger_prod.info(f"📱 TELEGRAM: Tentando enviar mensagem (para_canal={para_canal})")
             
             # Enviar para chat pessoal
             if self.chat_id:
@@ -999,13 +1003,31 @@ class TennisIQBot:
                     'parse_mode': 'HTML'
                 }
                 
-                response_chat = requests.post(url, data=data_chat, timeout=5)  # Reduzido de 10 para 5 segundos
-                resultados.append(response_chat.status_code == 200)
-                
-                if response_chat.status_code == 200:
-                    print("✅ Mensagem enviada para chat pessoal")
-                else:
-                    print("❌ Falha ao enviar para chat pessoal")
+                try:
+                    response_chat = requests.post(url, data=data_chat, timeout=10)
+                    
+                    if response_chat.status_code == 200:
+                        print("✅ Mensagem enviada para chat pessoal")
+                        logger_prod.success("TELEGRAM: Mensagem enviada para chat pessoal")
+                        resultados.append(True)
+                    else:
+                        erro_msg = f"❌ Falha ao enviar para chat pessoal - Status: {response_chat.status_code}, Resposta: {response_chat.text}"
+                        print(erro_msg)
+                        logger_prod.error(erro_msg)
+                        resultados.append(False)
+                        
+                except requests.exceptions.Timeout:
+                    erro_msg = "⏰ TIMEOUT: Falha ao enviar para chat pessoal - timeout de 10s"
+                    print(erro_msg)
+                    logger_prod.error(erro_msg)
+                    resultados.append(False)
+                except requests.exceptions.RequestException as e:
+                    erro_msg = f"🌐 REDE: Erro de conexão para chat pessoal - {str(e)}"
+                    print(erro_msg)
+                    logger_prod.error(erro_msg)
+                    resultados.append(False)
+            else:
+                logger_prod.warning("TELEGRAM: Chat ID não configurado")
             
             # Enviar para canal (se solicitado e configurado)
             if para_canal and self.channel_id:
@@ -1015,18 +1037,46 @@ class TennisIQBot:
                     'parse_mode': 'HTML'
                 }
                 
-                response_canal = requests.post(url, data=data_canal, timeout=5)  # Reduzido de 10 para 5 segundos
-                resultados.append(response_canal.status_code == 200)
-                
-                if response_canal.status_code == 200:
-                    print("✅ Mensagem enviada para canal")
-                else:
-                    print("❌ Falha ao enviar para canal")
+                try:
+                    response_canal = requests.post(url, data=data_canal, timeout=10)
+                    
+                    if response_canal.status_code == 200:
+                        print("✅ Mensagem enviada para canal")
+                        logger_prod.success("TELEGRAM: Mensagem enviada para canal")
+                        resultados.append(True)
+                    else:
+                        erro_msg = f"❌ Falha ao enviar para canal - Status: {response_canal.status_code}, Resposta: {response_canal.text}"
+                        print(erro_msg)
+                        logger_prod.error(erro_msg)
+                        resultados.append(False)
+                        
+                except requests.exceptions.Timeout:
+                    erro_msg = "⏰ TIMEOUT: Falha ao enviar para canal - timeout de 10s"
+                    print(erro_msg)
+                    logger_prod.error(erro_msg)
+                    resultados.append(False)
+                except requests.exceptions.RequestException as e:
+                    erro_msg = f"🌐 REDE: Erro de conexão para canal - {str(e)}"
+                    print(erro_msg)
+                    logger_prod.error(erro_msg)
+                    resultados.append(False)
+            elif para_canal and not self.channel_id:
+                logger_prod.warning("TELEGRAM: Canal solicitado mas Channel ID não configurado")
             
-            return any(resultados) if resultados else False
+            sucesso = any(resultados) if resultados else False
+            if sucesso:
+                logger_prod.success("TELEGRAM: Pelo menos um envio foi bem-sucedido")
+            else:
+                logger_prod.error("TELEGRAM: Todos os envios falharam")
+                
+            return sucesso
             
         except Exception as e:
-            print(f"❌ Erro ao enviar mensagem no Telegram: {e}")
+            erro_msg = f"❌ ERRO CRÍTICO ao enviar mensagem no Telegram: {str(e)}"
+            print(erro_msg)
+            logger_prod.error(erro_msg)
+            import traceback
+            logger_prod.error(f"📋 TRACEBACK: {traceback.format_exc()}")
             return False
     
     def enviar_resultado_aposta(self, aposta_data, resultado_data):
@@ -1652,16 +1702,168 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         return True
     
     def extrair_odd_jogador(self, odds_data, jogador):
-        """Extrai a odd do jogador principal"""
-        if isinstance(odds_data, dict):
+        """Extrai a odd do jogador principal baseado no seu nome real"""
+        if not isinstance(odds_data, dict):
+            return 1.8
+            
+        try:
+            # Primeiro verificar se temos o event_id e os nomes dos jogadores
+            event_id = odds_data.get('event_id')
+            if not event_id:
+                logger_prod.warning("Event ID não disponível para mapear odds corretamente")
+                return odds_data.get('jogador1_odd', 1.8)
+            
+            # Buscar nomes reais dos jogadores HOME e AWAY
+            nomes_reais = self.buscar_nomes_jogadores_reais(event_id)
+            if not nomes_reais:
+                logger_prod.warning(f"Não foi possível obter nomes reais para evento {event_id}")
+                return odds_data.get('jogador1_odd', 1.8)
+            
+            jogador_home = nomes_reais.get('home', '')
+            jogador_away = nomes_reais.get('away', '')
+            
+            # Verificar se o jogador é HOME ou AWAY usando similaridade de nomes
+            if self.nomes_similares(jogador, jogador_home):
+                # Jogador é HOME - retornar jogador1_odd (que vem de home_od)
+                return odds_data.get('jogador1_odd', 1.8)
+            elif self.nomes_similares(jogador, jogador_away):
+                # Jogador é AWAY - retornar jogador2_odd (que vem de away_od)
+                return odds_data.get('jogador2_odd', 2.1)
+            else:
+                logger_prod.warning(f"Jogador '{jogador}' não encontrado entre HOME '{jogador_home}' e AWAY '{jogador_away}'")
+                return odds_data.get('jogador1_odd', 1.8)
+                
+        except Exception as e:
+            logger_prod.error(f"Erro ao extrair odd do jogador '{jogador}': {e}")
             return odds_data.get('jogador1_odd', 1.8)
-        return 1.8
     
     def extrair_odd_oponente(self, odds_data, oponente):
-        """Extrai a odd do oponente"""
-        if isinstance(odds_data, dict):
+        """Extrai a odd do oponente baseado no seu nome real"""
+        if not isinstance(odds_data, dict):
+            return 2.1
+            
+        try:
+            # Primeiro verificar se temos o event_id e os nomes dos jogadores
+            event_id = odds_data.get('event_id')
+            if not event_id:
+                logger_prod.warning("Event ID não disponível para mapear odds do oponente corretamente")
+                return odds_data.get('jogador2_odd', 2.1)
+            
+            # Buscar nomes reais dos jogadores HOME e AWAY
+            nomes_reais = self.buscar_nomes_jogadores_reais(event_id)
+            if not nomes_reais:
+                logger_prod.warning(f"Não foi possível obter nomes reais do oponente para evento {event_id}")
+                return odds_data.get('jogador2_odd', 2.1)
+            
+            jogador_home = nomes_reais.get('home', '')
+            jogador_away = nomes_reais.get('away', '')
+            
+            # Verificar se o oponente é HOME ou AWAY usando similaridade de nomes
+            if self.nomes_similares(oponente, jogador_home):
+                # Oponente é HOME - retornar jogador1_odd (que vem de home_od)
+                return odds_data.get('jogador1_odd', 1.8)
+            elif self.nomes_similares(oponente, jogador_away):
+                # Oponente é AWAY - retornar jogador2_odd (que vem de away_od)
+                return odds_data.get('jogador2_odd', 2.1)
+            else:
+                logger_prod.warning(f"Oponente '{oponente}' não encontrado entre HOME '{jogador_home}' e AWAY '{jogador_away}'")
+                return odds_data.get('jogador2_odd', 2.1)
+                
+        except Exception as e:
+            logger_prod.error(f"Erro ao extrair odd do oponente '{oponente}': {e}")
             return odds_data.get('jogador2_odd', 2.1)
-        return 2.1
+    
+    def buscar_nomes_jogadores_reais(self, event_id):
+        """Busca os nomes reais dos jogadores HOME e AWAY da API"""
+        try:
+            # Verificar cache primeiro
+            cache_key = f"nomes_{event_id}"
+            agora = time.time()
+            
+            if hasattr(self, 'cache_nomes'):
+                if cache_key in self.cache_nomes:
+                    timestamp, nomes = self.cache_nomes[cache_key]
+                    if agora - timestamp < 300:  # Cache por 5 minutos
+                        return nomes
+            else:
+                self.cache_nomes = {}
+            
+            # Buscar na API
+            url = f"{self.base_url}/v3/events/inplay"
+            params = {
+                'token': self.api_key,
+                'sport_id': 13  # Tênis
+            }
+            
+            # Registrar requisição
+            api_rate_limiter.register_request()
+            self.requests_contador += 1
+            
+            response = requests.get(url, params=params, timeout=3)
+            
+            if response.status_code == 429:
+                api_rate_limiter.register_429_error()
+                logger_prod.rate_limit_429(url)
+                return None
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get('success') == 1 and 'results' in data:
+                for evento in data['results']:
+                    if str(evento.get('id')) == str(event_id):
+                        nomes = {
+                            'home': evento.get('home', {}).get('name', ''),
+                            'away': evento.get('away', {}).get('name', '')
+                        }
+                        
+                        # Salvar no cache
+                        self.cache_nomes[cache_key] = (agora, nomes)
+                        
+                        logger_prod.log('DEBUG', f"✅ Nomes obtidos para evento {event_id}: HOME={nomes['home']}, AWAY={nomes['away']}")
+                        return nomes
+            
+            return None
+            
+        except Exception as e:
+            logger_prod.error(f"Erro ao buscar nomes dos jogadores para evento {event_id}: {e}")
+            return None
+    
+    def nomes_similares(self, nome1, nome2):
+        """Verifica se dois nomes são similares o suficiente para serem considerados o mesmo jogador"""
+        if not nome1 or not nome2:
+            return False
+        
+        # Normalizar nomes (remover acentos, converter para minúsculas, remover espaços extras)
+        def normalizar_nome(nome):
+            import unicodedata
+            nome = unicodedata.normalize('NFD', nome.lower())
+            nome = ''.join(c for c in nome if not unicodedata.combining(c))
+            return ' '.join(nome.split())
+        
+        nome1_norm = normalizar_nome(nome1)
+        nome2_norm = normalizar_nome(nome2)
+        
+        # Verificar se são exatamente iguais após normalização
+        if nome1_norm == nome2_norm:
+            return True
+        
+        # Verificar se um nome está contido no outro (para casos como "J. Smith" vs "John Smith")
+        if nome1_norm in nome2_norm or nome2_norm in nome1_norm:
+            return True
+        
+        # Verificar similaridade de palavras (útil para nomes com variações)
+        palavras1 = set(nome1_norm.split())
+        palavras2 = set(nome2_norm.split())
+        
+        # Se tem palavras em comum e pelo menos 50% de overlap
+        intersecao = palavras1.intersection(palavras2)
+        uniao = palavras1.union(palavras2)
+        
+        if intersecao and len(intersecao) / len(uniao) >= 0.5:
+            return True
+        
+        return False
     
     def identificar_contexto_partida(self, oportunidade):
         """Identifica o contexto da partida para análise mental e timing"""
@@ -1711,9 +1913,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             placar = oportunidade.get('placar', '')
             jogador = oportunidade.get('jogador', '')
             
-            # Usar o detector de alavancagem
+            # Usar o detector de alavancagem com instância do bot para mapeamento correto
             analise = self.detector_alavancagem.analisar_oportunidade_alavancagem(
-                oportunidade, placar, odds_data
+                oportunidade, placar, odds_data, self
             )
             
             # Log com logger ultra para garantir visibilidade
@@ -1843,6 +2045,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             'confianca': analise_alavancagem['confianca'],
             'justificativa': analise_alavancagem['justificativa'],
             'partida_original': f"{oportunidade.get('jogador')} vs {oportunidade.get('oponente')}",
+            'event_id': oportunidade.get('event_id', ''),  # ✅ ADICIONADO: event_id para link Bet365
             'prioridade': 5,
             'estrategia': 'ALAVANCAGEM',
             'timestamp': datetime.now().isoformat()
@@ -1851,10 +2054,18 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
     def enviar_sinal_alavancagem(self, sinal):
         """Envia sinal de aposta de alavancagem no formato padrão TennisIQ"""
         try:
+            # Log detalhado para debug
+            logger_ultra.info(f"🚀 INICIANDO ENVIO DO SINAL ALAVANCAGEM")
+            logger_ultra.info(f"📊 Dados do sinal: {sinal}")
+            logger_prod.info(f"🚀 ALAVANCAGEM: Iniciando envio do sinal para {sinal.get('jogador_alvo', 'N/A')}")
+            
             # Extrair dados básicos
             jogador_alvo = sinal['jogador_alvo']
             odd_alvo = sinal['odd_alvo']
             partida_original = sinal['partida_original']
+            
+            logger_ultra.info(f"🎯 Jogador alvo: {jogador_alvo}")
+            logger_ultra.info(f"💰 Odd alvo: {odd_alvo}")
             
             # Determinar oponente (extrair do formato "Jogador vs Oponente")
             if ' vs ' in partida_original:
@@ -1864,8 +2075,11 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             else:
                 oponente = "Oponente"
             
+            logger_ultra.info(f"👤 Oponente identificado: {oponente}")
+            
             # Calcular odd mínima
             odd_minima = self.calcular_odd_minima(odd_alvo)
+            logger_ultra.info(f"⚠️ Odd mínima calculada: {odd_minima}")
             
             # Usar horário de Brasília (UTC-3)
             agora = datetime.now(timezone(timedelta(hours=-3)))
@@ -1873,7 +2087,19 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             
             # Gerar link direto da Bet365 (se disponível)
             event_id = sinal.get('event_id', '')
-            bet365_link = bet365_manager.generate_link(event_id) if event_id else "Link não disponível"
+            if event_id:
+                try:
+                    bet365_link = bet365_manager.generate_link(event_id)
+                    logger_ultra.info(f"🔗 Link Bet365 gerado: {bet365_link[:50]}...")
+                    logger_prod.info(f"🔗 Link Bet365 gerado com sucesso para event_id: {event_id}")
+                except Exception as e:
+                    bet365_link = "[Link Bet365]"
+                    logger_ultra.warning(f"⚠️ Erro ao gerar link Bet365: {e}")
+                    logger_prod.warning(f"⚠️ Erro ao gerar link Bet365: {e}")
+            else:
+                bet365_link = "[Link Bet365]"
+                logger_ultra.warning(f"⚠️ Event ID não fornecido")
+                logger_prod.warning(f"⚠️ Event ID não fornecido para o sinal")
             
             # Montar sinal no formato padrão TennisIQ
             mensagem = f"""🎾 TennisIQ - Sinal - Alavancagem 🚀
@@ -1885,18 +2111,48 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
 💰 Odd: {odd_alvo}
 ⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
 
-🔗 Link direto: https://www.bet365.bet.br/?_h=LKUUnzn5idsD_NCCi9iyvQ%3D%3D&btsffd=1#/IP/EV10459378C13
+🔗 Link direto: {bet365_link}
 
 #TennisIQ"""
             
+            logger_ultra.info(f"📝 Mensagem formatada: {len(mensagem)} caracteres")
+            logger_prod.info(f"📝 Mensagem formatada com {len(mensagem)} caracteres")
+            
             # Salvar log da aposta de alavancagem
-            self.log_aposta_alavancagem(sinal)
+            try:
+                self.log_aposta_alavancagem(sinal)
+                logger_ultra.info(f"💾 Log salvo com sucesso")
+                logger_prod.info(f"💾 Log da aposta salvo com sucesso")
+            except Exception as e:
+                logger_ultra.warning(f"⚠️ Erro ao salvar log: {e}")
+                logger_prod.warning(f"⚠️ Erro ao salvar log da aposta: {e}")
             
             # Enviar via Telegram
-            return self.enviar_telegram(mensagem)
+            logger_ultra.info(f"📱 Iniciando envio via Telegram...")
+            logger_prod.info(f"📱 Enviando sinal via Telegram...")
+            resultado = self.enviar_telegram(mensagem)
+            
+            if resultado:
+                logger_ultra.success(f"✅ SINAL ALAVANCAGEM ENVIADO COM SUCESSO!")
+                logger_prod.success(f"SINAL ALAVANCAGEM ENVIADO COM SUCESSO para {jogador_alvo}!")
+            else:
+                logger_ultra.error(f"❌ FALHA AO ENVIAR SINAL ALAVANCAGEM!")
+                logger_prod.error(f"FALHA AO ENVIAR SINAL ALAVANCAGEM para {jogador_alvo}!")
+            
+            return resultado
             
         except Exception as e:
-            print(f"❌ Erro ao enviar sinal alavancagem: {e}")
+            erro_msg = f"❌ ERRO CRÍTICO no envio sinal alavancagem: {str(e)}"
+            logger_ultra.error(erro_msg)
+            logger_prod.error(erro_msg)
+            print(erro_msg)
+            
+            # Log do traceback completo para debugging
+            import traceback
+            traceback_msg = f"📋 TRACEBACK: {traceback.format_exc()}"
+            logger_ultra.error(traceback_msg)
+            logger_prod.error(traceback_msg)
+            
             return False
     
     def log_aposta_alavancagem(self, sinal):
