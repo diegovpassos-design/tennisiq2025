@@ -1324,22 +1324,36 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 jogador_alvo = oportunidade.get('jogador', 'N/A')
                 logger_formatado.log_estrategia('alavancagem', 'analise', 'Analisando oportunidade', jogador_alvo)
                 
+                # Log detalhado do resultado da análise
+                logger_ultra.info(f"📊 RESULTADO ANÁLISE ALAVANCAGEM: {analise_alavancagem}")
+                
                 if analise_alavancagem['alavancagem_aprovada']:
+                    logger_ultra.info(f"✅ ALAVANCAGEM APROVADA - Prosseguindo para validação de timing")
                     
                     # Validar timing específico para alavancagem
                     timing_aprovado = self.validar_timing_inteligente(
                         oportunidade, 
                         'ALAVANCAGEM', 
-                        momentum_score=analise_alavancagem.get('momentum_score', 0)
+                        score_mental=analise_alavancagem.get('momentum_score', 0)
                     )
                     
+                    logger_ultra.info(f"⏰ VALIDAÇÃO TIMING: {timing_aprovado}")
+                    
                     if not timing_aprovado:
+                        logger_ultra.warning(f"❌ TIMING REJEITADO para alavancagem")
                         logger_formatado.log_estrategia('alavancagem', 'rejeicao', 'Timing inadequado', jogador_alvo)
                         self.rastrear_estrategia('alavancagem', 'rejeitada', 'Timing inadequado', jogador_alvo)
                     else:
+                        logger_ultra.info(f"🚀 PREPARANDO SINAL ALAVANCAGEM...")
                         # ESTRATÉGIA ALAVANCAGEM: Apostar no jogador da oportunidade
                         sinal_alavancagem = self.preparar_sinal_alavancagem(analise_alavancagem, oportunidade, odds_data)
-                        if self.enviar_sinal_alavancagem(sinal_alavancagem):
+                        logger_ultra.info(f"📝 SINAL PREPARADO: {sinal_alavancagem}")
+                        
+                        logger_ultra.info(f"📱 ENVIANDO SINAL ALAVANCAGEM...")
+                        resultado_envio = self.enviar_sinal_alavancagem(sinal_alavancagem)
+                        logger_ultra.info(f"📤 RESULTADO ENVIO: {resultado_envio}")
+                        
+                        if resultado_envio:
                             self.sinais_enviados.add(sinal_id)
                             self.partidas_processadas.add(partida_unica_id)
                             contador_sinais += 1
