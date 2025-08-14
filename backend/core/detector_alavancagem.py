@@ -79,7 +79,12 @@ class DetectorAlavancagem:
                 }
             
             # 5. Verificar se é melhor estatisticamente (usando momentum da oportunidade)
+            # ✅ CORREÇÃO: Buscar momentum nos campos corretos da oportunidade
             momentum_jogador = oportunidade_data.get('momentum_score', 0)
+            if momentum_jogador == 0:
+                # Se momentum_score não existe, buscar no campo 'momentum'
+                momentum_jogador = oportunidade_data.get('momentum', 0)
+            
             if momentum_jogador < self.momentum_minimo:
                 return {
                     'alavancagem_aprovada': False,
