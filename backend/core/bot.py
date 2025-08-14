@@ -1736,16 +1736,25 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             jogador_home = nomes_reais.get('home', '')
             jogador_away = nomes_reais.get('away', '')
             
+            # 🔍 LOG DETALHADO PARA DEBUG
+            logger_ultra.info(f"🔍 MAPEAMENTO ODDS - Jogador Buscado: '{jogador}'")
+            logger_ultra.info(f"🏠 HOME da API: '{jogador_home}' → Odd: {odds_data.get('jogador1_odd', 'N/A')}")
+            logger_ultra.info(f"✈️ AWAY da API: '{jogador_away}' → Odd: {odds_data.get('jogador2_odd', 'N/A')}")
+            
             # Verificar se o jogador é HOME ou AWAY usando similaridade de nomes
             if self.nomes_similares(jogador, jogador_home):
-                # Jogador é HOME - retornar jogador1_odd (que vem de home_od)
-                return odds_data.get('jogador1_odd', 1.8)
+                resultado_odd = odds_data.get('jogador1_odd', 1.8)
+                logger_ultra.info(f"✅ '{jogador}' = HOME '{jogador_home}' → Odd: {resultado_odd}")
+                return resultado_odd
             elif self.nomes_similares(jogador, jogador_away):
-                # Jogador é AWAY - retornar jogador2_odd (que vem de away_od)
-                return odds_data.get('jogador2_odd', 2.1)
+                resultado_odd = odds_data.get('jogador2_odd', 2.1)
+                logger_ultra.info(f"✅ '{jogador}' = AWAY '{jogador_away}' → Odd: {resultado_odd}")
+                return resultado_odd
             else:
-                logger_prod.warning(f"Jogador '{jogador}' não encontrado entre HOME '{jogador_home}' e AWAY '{jogador_away}'")
-                return odds_data.get('jogador1_odd', 1.8)
+                logger_ultra.warning(f"⚠️ Jogador '{jogador}' NÃO encontrado entre HOME '{jogador_home}' e AWAY '{jogador_away}'")
+                resultado_odd = odds_data.get('jogador1_odd', 1.8)
+                logger_ultra.info(f"🔄 Usando odd padrão: {resultado_odd}")
+                return resultado_odd
                 
         except Exception as e:
             logger_prod.error(f"Erro ao extrair odd do jogador '{jogador}': {e}")
