@@ -1297,14 +1297,22 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 partida_unica_id = f"{partida_id}-{jogadores_ordenados[0]}-{jogadores_ordenados[1]}"
                 sinal_id = f"{partida_unica_id}-{jogador1}"  # ID do sinal específico do jogador
                 
+                # ✅ CORREÇÃO: IDs específicos por estratégia para evitar conflitos
+                sinal_id_alavancagem = f"{sinal_id}-ALAVANCAGEM"
+                sinal_id_tradicional = f"{sinal_id}-TRADICIONAL" 
+                sinal_id_invertida = f"{sinal_id}-INVERTIDA"
+                
                 # Verificar se esta PARTIDA já foi processada (independente do jogador)
                 if partida_unica_id in self.partidas_processadas:
                     print(f"⏭️ Partida já processada: {jogador1} vs {jogador2}")
                     continue
                 
-                # Verificar se este sinal específico já foi enviado
-                if sinal_id in self.sinais_enviados:
-                    print(f"⏭️ Sinal específico já enviado para {jogador1} vs {jogador2}")
+                # ✅ CORREÇÃO: Verificar sinais por estratégia específica
+                # Verificar se algum sinal desta partida já foi enviado (qualquer estratégia)
+                if (sinal_id_alavancagem in self.sinais_enviados or 
+                    sinal_id_tradicional in self.sinais_enviados or 
+                    sinal_id_invertida in self.sinais_enviados):
+                    print(f"⏭️ Algum sinal já enviado para {jogador1} vs {jogador2}")
                     continue
                 
                 # Buscar odds atuais
@@ -1354,7 +1362,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                         logger_ultra.info(f"📤 RESULTADO ENVIO: {resultado_envio}")
                         
                         if resultado_envio:
-                            self.sinais_enviados.add(sinal_id)
+                            # ✅ CORREÇÃO: Usar ID específico da estratégia alavancagem
+                            self.sinais_enviados.add(sinal_id_alavancagem)
                             self.partidas_processadas.add(partida_unica_id)
                             contador_sinais += 1
                             logger_formatado.log_estrategia('alavancagem', 'sucesso', f"Sinal enviado", analise_alavancagem['jogador_alvo'])
@@ -1408,7 +1417,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     # ESTRATÉGIA INVERTIDA: Apostar no adversário
                     sinal_invertido = self.preparar_sinal_invertido(analise_mental, oportunidade, odds_data)
                     if self.enviar_sinal_invertido(sinal_invertido):
-                        self.sinais_enviados.add(sinal_id)
+                        # ✅ CORREÇÃO: Usar ID específico da estratégia invertida
+                        self.sinais_enviados.add(sinal_id_invertida)
                         self.partidas_processadas.add(partida_unica_id)
                         contador_sinais += 1
                         logger_formatado.log_estrategia('invertida', 'sucesso', f"Sinal enviado", analise_mental['target_final'])
@@ -1584,7 +1594,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 
                 # Enviar sinal
                 if self.enviar_telegram(sinal):
-                    self.sinais_enviados.add(sinal_id)
+                    # ✅ CORREÇÃO: Usar ID específico da estratégia tradicional
+                    self.sinais_enviados.add(sinal_id_tradicional)
                     self.partidas_processadas.add(partida_unica_id)  # Marcar partida como processada
                     contador_sinais += 1
                     print(f"🎯 Sinal TennisIQ enviado: {oportunidade['jogador']} vs {oportunidade['oponente']}")
