@@ -364,227 +364,6 @@ def buscar_odds_partida_atual(event_id):
         print(f"⚠️ Erro ao buscar odds da partida {event_id}: {e}")
         return {'casa': 'N/A', 'visitante': 'N/A'}
 
-def _primeiro_set_terminou(placar):
-    """
-    Verifica se o primeiro set já terminou
-    Formato esperado: "6-4, 3-2" (primeiro set 6-4, segundo set 3-2)
-    """
-    if not placar or ',' not in placar:
-        return False
-    
-    try:
-        sets = placar.split(',')
-        if len(sets) < 2:
-            return False
-        
-        primeiro_set = sets[0].strip()
-        if '-' in primeiro_set:
-            home_score, away_score = primeiro_set.split('-')
-            home_score = int(home_score.strip())
-            away_score = int(away_score.strip())
-            
-            # Verifica se o set terminou (6+ games para o vencedor e diferença adequada)
-            if (home_score >= 6 or away_score >= 6):
-                # Vitória normal (6-4, 6-3, etc.) ou tie-break (7-6)
-                if abs(home_score - away_score) >= 2 or max(home_score, away_score) == 7:
-                    return True
-    except:
-        return False
-    
-    return False
-
-def _jogador_ganhou_primeiro_set(placar, tipo_jogador):
-    """
-    Verifica se o jogador ganhou o primeiro set
-    tipo_jogador: 'HOME' ou 'AWAY'
-    """
-    if not placar or ',' not in placar:
-        return False
-    
-    try:
-        sets = placar.split(',')
-        primeiro_set = sets[0].strip()
-        
-        if '-' in primeiro_set:
-            home_score, away_score = primeiro_set.split('-')
-            home_score = int(home_score.strip())
-            away_score = int(away_score.strip())
-            
-            if tipo_jogador == 'HOME':
-                return home_score > away_score
-            else:
-                return away_score > home_score
-    except:
-        return False
-    
-    return False
-
-def _esta_ganhando_segundo_set(placar, tipo_jogador):
-    """
-    Verifica se o jogador está ganhando OU empatado no segundo set
-    """
-    if not placar or ',' not in placar:
-        return False
-    
-    try:
-        sets = placar.split(',')
-        if len(sets) < 2:
-            return False
-        
-        segundo_set = sets[1].strip()
-        
-        if '-' in segundo_set:
-            home_score, away_score = segundo_set.split('-')
-            home_score = int(home_score.strip())
-            away_score = int(away_score.strip())
-            
-            if tipo_jogador == 'HOME':
-                return home_score >= away_score
-            else:
-                return away_score >= home_score
-    except:
-        return False
-    
-    return False
-
-def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante):
-    """Testa se a partida atende aos critérios da estratégia ALAVANCAGEM"""
-    
-    # Critérios específicos da ALAVANCAGEM
-    CRITERIOS = {
-        'EV_MINIMO': 0.05,
-        'MOMENTUM_SCORE_MINIMO': 55,
-        'WIN_1ST_SERVE_MINIMO': 55,
-        'DOUBLE_FAULTS_MAXIMO': 8,
-        'ODDS_MIN': 1.20,
-        'ODDS_MAX': 1.50,
-        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
-        'NOME': 'ALAVANCAGEM'
-    }
-    
-    print(f"      🚀 Testando ALAVANCAGEM...")
-    
-    # 1. VALIDAÇÃO DE TIMING - PRIORIDADE MÍNIMA
-    prioridade_partida = partida.get('prioridade', 0)
-    prioridade_minima = CRITERIOS['PRIORIDADE_MINIMA']
-    timing_aprovado = prioridade_partida >= prioridade_minima
-    
-    print(f"         ⏰ Timing: Prioridade {prioridade_partida} {'✅' if timing_aprovado else '❌'} (≥{prioridade_minima})")
-    
-    if not timing_aprovado:
-        print(f"         ❌ ALAVANCAGEM rejeitada - timing insuficiente")
-        return None
-    
-    # Dados dos jogadores
-    ms_casa = dados_casa.get('momentum_score', 0)
-    ms_visitante = dados_visitante.get('momentum_score', 0)
-    w1s_casa = float(dados_casa.get('win_1st_serve', 0)) if dados_casa.get('win_1st_serve') else 0
-    w1s_visitante = float(dados_visitante.get('win_1st_serve', 0)) if dados_visitante.get('win_1st_serve') else 0
-    
-    # Validação individual
-    casa_dominante = (ms_casa >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_casa >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    visitante_dominante = (ms_visitante >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_visitante >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    dominancia_aprovada = casa_dominante or visitante_dominante
-    ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
-    
-    print(f"")
-    print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
-    print(f"")
-    print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
-    
-    if not (dominancia_aprovada and ev_aprovado):
-        print(f"")
-        print(f"         ❌ ALAVANCAGEM rejeitada")
-        return None
-    
-    # ========== VALIDAÇÕES ESPECÍFICAS DE ALAVANCAGEM ==========
-    placar = partida.get('placar', '')
-    
-    # 1. Verificar se o primeiro set terminou
-    if not _primeiro_set_terminou(placar):
-        print(f"         ❌ ALAVANCAGEM rejeitada - primeiro set ainda não terminou (placar: {placar})")
-        return None
-    
-    # 2. Identificar quem ganhou o primeiro set e se está ganhando no segundo
-    casa_ganhou_1set = _jogador_ganhou_primeiro_set(placar, 'HOME')
-    visitante_ganhou_1set = _jogador_ganhou_primeiro_set(placar, 'AWAY')
-    casa_ganhando_2set = _esta_ganhando_segundo_set(placar, 'HOME')
-    visitante_ganhando_2set = _esta_ganhando_segundo_set(placar, 'AWAY')
-    
-    print(f"         🏆 1º Set: Casa={'✅' if casa_ganhou_1set else '❌'}, Visitante={'✅' if visitante_ganhou_1set else '❌'}")
-    print(f"         ⚡ 2º Set: Casa={'✅' if casa_ganhando_2set else '❌'}, Visitante={'✅' if visitante_ganhando_2set else '❌'}")
-    
-    # 3. Validar contexto de alavancagem: ganhou 1º set + (ganhando ou empatado no 2º) + dominante
-    casa_alavancagem_valida = casa_ganhou_1set and casa_ganhando_2set and casa_dominante
-    visitante_alavancagem_valida = visitante_ganhou_1set and visitante_ganhando_2set and visitante_dominante
-    
-    if not (casa_alavancagem_valida or visitante_alavancagem_valida):
-        print(f"         ❌ ALAVANCAGEM rejeitada - contexto de sets não atende critérios")
-        print(f"            Casa: ganhou1º={casa_ganhou_1set}, ganha2º={casa_ganhando_2set}, dominante={casa_dominante}")
-        print(f"            Visitante: ganhou1º={visitante_ganhou_1set}, ganha2º={visitante_ganhando_2set}, dominante={visitante_dominante}")
-        return None
-    
-    print(f"         ✅ CONTEXTO ALAVANCAGEM VÁLIDO!")
-    
-    # Selecionar jogador target baseado no contexto de alavancagem
-    if casa_alavancagem_valida and not visitante_alavancagem_valida:
-        jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-    elif visitante_alavancagem_valida and not casa_alavancagem_valida:
-        jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    else:
-        # Ambos dominantes - escolher o com maior MS
-        if ms_casa >= ms_visitante:
-            jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-        else:
-            jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    
-    # Validações finais - buscar odds atuais
-    odds_atuais = buscar_odds_partida_atual(event_id)
-    odds_jogador = odds_atuais['casa'] if jogador_target['tipo'] == 'HOME' else odds_atuais['visitante']
-    if odds_jogador != 'N/A':
-        try:
-            odds_float = float(odds_jogador)
-            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
-        except:
-            odds_aprovado = False
-    else:
-        odds_aprovado = False
-    
-    df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
-    df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
-    
-    print(f"")
-    print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
-    print(f"")
-    print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
-    
-    if odds_aprovado and df_aprovado:
-        print(f"")
-        print(f"         ✅ ALAVANCAGEM APROVADA!")
-        return {
-            'partida_id': event_id,
-            'liga': partida['liga'],
-            'jogador': jogador_target['nome'],
-            'oponente': jogador_target['oponente'],
-            'placar': partida['placar'],
-            'fase_timing': partida['fase'],
-            'prioridade_timing': partida['prioridade'],
-            'tipo': jogador_target['tipo'],
-            'ev': jogador_target['dados']['ev'],
-            'momentum': jogador_target['dados']['momentum_score'],
-            'double_faults': jogador_target['dados']['double_faults'],
-            'win_1st_serve': jogador_target['dados']['win_1st_serve'],
-            'estrategia': 'ALAVANCAGEM',
-            'ms_casa': ms_casa,
-            'ms_visitante': ms_visitante,
-            'w1s_casa': w1s_casa,
-            'w1s_visitante': w1s_visitante
-        }
-    else:
-        print(f"")
-        print(f"         ❌ ALAVANCAGEM rejeitada na validação final")
-        return None
-
 def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante):
     """Testa se a partida atende aos critérios da estratégia TRADICIONAL"""
     
@@ -635,7 +414,7 @@ def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_princ
         print(f"         ❌ TRADICIONAL rejeitada")
         return None
     
-    # Selecionar jogador target (mesmo código da alavancagem)
+    # Selecionar jogador target (para estratégias tradicionais)
     if casa_dominante and not visitante_dominante:
         jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
     elif visitante_dominante and not casa_dominante:
@@ -813,22 +592,9 @@ def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_te
 def analisar_ev_partidas():
     """Analisa EV das partidas com filtros refinados."""
     
-    print("🎾 SELEÇÃO FINAL - ANÁLISE REFINADA COM MÚLTIPLOS FILTROS")
+    print("🎾 SELEÇÃO FINAL - ANÁLISE REFINADA COM 2 ESTRATÉGIAS")
     print("=" * 70)
     print("🔍 Aplicando filtros: ESTRATÉGIAS INDEPENDENTES")
-    
-    # 🚀 ESTRATÉGIA ALAVANCAGEM - Para EVs muito altos (independente)
-    CRITERIOS_ALAVANCAGEM = {
-        'EV_MINIMO': 0.1,             # EVs baixos mas válidos (0.1+)
-        'EV_MAXIMO': 50.0,            # Sem limite superior
-        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
-        'ODDS_MIN': 1.20,             # Odds mínima
-        'ODDS_MAX': 1.50,             # Odds máxima para alavancagem
-        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
-        'NOME': 'ALAVANCAGEM'
-    }
 
     # 📊 ESTRATÉGIA TRADICIONAL - Para situações normais e equilibradas (independente)
     CRITERIOS_TRADICIONAL = {
@@ -856,8 +622,7 @@ def analisar_ev_partidas():
         'NOME': 'INVERTIDA'
     }
     
-    print("🎯 ESTRATÉGIAS INDEPENDENTES - Cada uma com seus critérios:")
-    print(f"   🚀 ALAVANCAGEM: EV ≥ {CRITERIOS_ALAVANCAGEM['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}%")
+    print("🎯 2 ESTRATÉGIAS INDEPENDENTES - Cada uma com seus critérios:")
     print(f"   📊 TRADICIONAL: EV ≥ {CRITERIOS_TRADICIONAL['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_TRADICIONAL['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_TRADICIONAL['WIN_1ST_SERVE_MINIMO']}%")
     print(f"   🔄 INVERTIDA: EV ≥ {CRITERIOS_INVERTIDOS['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}%")
     
@@ -938,25 +703,18 @@ def analisar_ev_partidas():
         # 🚀 SISTEMA PARALELO: TESTAR TODAS AS ESTRATÉGIAS INDEPENDENTEMENTE
         oportunidades_partida = []
         
-        print(f"📊 Testando TODAS as estratégias em paralelo...")
+        print(f"📊 Testando as 2 estratégias em paralelo...")
         print(f"   📈 EV Principal: {ev_principal:.3f}")
         print(f"   🎯 Alta Tensão: {'✅' if is_alta_tensao else '❌'}")
         
-        # 1️⃣ TESTAR ESTRATÉGIA ALAVANCAGEM
-        oportunidade_alavancagem = testar_estrategia_alavancagem(
-            partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante
-        )
-        if oportunidade_alavancagem:
-            oportunidades_partida.append(oportunidade_alavancagem)
-            
-        # 2️⃣ TESTAR ESTRATÉGIA TRADICIONAL  
+        # 1️⃣ TESTAR ESTRATÉGIA TRADICIONAL  
         oportunidade_tradicional = testar_estrategia_tradicional(
             partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante
         )
         if oportunidade_tradicional:
             oportunidades_partida.append(oportunidade_tradicional)
             
-        # 3️⃣ TESTAR ESTRATÉGIA INVERTIDA
+        # 2️⃣ TESTAR ESTRATÉGIA INVERTIDA
         oportunidade_invertida = testar_estrategia_invertida(
             partida, dados_casa, dados_visitante, is_alta_tensao, event_id, jogador_casa, jogador_visitante
         )
