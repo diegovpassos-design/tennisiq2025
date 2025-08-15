@@ -458,7 +458,7 @@ def testar_estrategia_alavancagem(partida, dados_casa, dados_visitante, ev_princ
         'DOUBLE_FAULTS_MAXIMO': 8,
         'ODDS_MIN': 1.20,
         'ODDS_MAX': 1.50,
-        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
+        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
         'NOME': 'ALAVANCAGEM'
     }
     
@@ -596,7 +596,7 @@ def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_princ
         'DOUBLE_FAULTS_MAXIMO': 5,
         'ODDS_MIN': 1.80,
         'ODDS_MAX': 2.50,
-        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
+        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
         'NOME': 'TRADICIONAL'
     }
     
@@ -704,7 +704,7 @@ def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_te
         'DOUBLE_FAULTS_MAXIMO': 6,
         'ODDS_MIN': 1.80,
         'ODDS_MAX': 2.50,
-        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
+        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
         'NOME': 'INVERTIDA'
     }
     
@@ -826,7 +826,7 @@ def analisar_ev_partidas():
         'DOUBLE_FAULTS_MAXIMO': 8,    # DF ≤ 8 (RELAXADO)
         'ODDS_MIN': 1.20,             # Odds mínima
         'ODDS_MAX': 1.50,             # Odds máxima para alavancagem
-        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
+        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
         'NOME': 'ALAVANCAGEM'
     }
 
@@ -839,7 +839,7 @@ def analisar_ev_partidas():
         'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5 (moderado)
         'ODDS_MIN': 1.80,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima para tradicional
-        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
+        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
         'NOME': 'TRADICIONAL'
     }
 
@@ -852,7 +852,7 @@ def analisar_ev_partidas():
         'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
         'ODDS_MIN': 1.80,             # Odds mínima
         'ODDS_MAX': 2.50,             # Odds máxima
-        'PRIORIDADE_MINIMA': 3,       # 2º SET OU MAIS - TIMING RIGOROSO
+        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
         'NOME': 'INVERTIDA'
     }
     
@@ -860,6 +860,13 @@ def analisar_ev_partidas():
     print(f"   🚀 ALAVANCAGEM: EV ≥ {CRITERIOS_ALAVANCAGEM['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_ALAVANCAGEM['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_ALAVANCAGEM['WIN_1ST_SERVE_MINIMO']}%")
     print(f"   📊 TRADICIONAL: EV ≥ {CRITERIOS_TRADICIONAL['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_TRADICIONAL['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_TRADICIONAL['WIN_1ST_SERVE_MINIMO']}%")
     print(f"   🔄 INVERTIDA: EV ≥ {CRITERIOS_INVERTIDOS['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}%")
+    
+    print("🔴 FILTRO DE TIMING ULTRA RIGOROSO ATIVADO")
+    print("============================================================")
+    print("⏰ TIMING ATUALIZADO: PRIORIDADE ≥ 4 (2º SET MEIO/FINAL)")
+    print("🎯 Apenas partidas com prioridade 4 ou 5 serão analisadas")
+    print("⚡ Mudança: 3→4 = Filtro mais restritivo para maior precisão")
+    print("============================================================")
     
     def verificar_se_e_terceiro_set(placar):
         """Verifica se a partida está no 3º set"""

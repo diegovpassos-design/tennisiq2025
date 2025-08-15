@@ -20,7 +20,7 @@ FILTRO DE TIMING RIGOROSO PARA TENNIS IQ
                     if len(eventos) == 0:
                         print("⚠️  Nenhuma partida de tênis ao vivo no momento")
                         return [] filtra partidas baseado em timing e prioridade de entrada.
-Só aprova partidas com prioridade ≥3 (2º set ou mais avançado).
+Só aprova partidas com prioridade ≥4 (2º set meio/final).
 
 PRIORIDADES:
 - 5: 3º set (qualquer ponto) - EXCELENTE
@@ -227,7 +227,7 @@ def analisar_fase_jogo(placar_str):
 
 def filtrar_partidas_por_timing():
     """
-    FILTRO DE TIMING RIGOROSO - Só aprova partidas com prioridade ≥3 (2º set ou mais).
+    FILTRO DE TIMING RIGOROSO - Só aprova partidas com prioridade ≥4 (2º set meio/final).
     """
     
     print("🔴 FILTRO DE TIMING RIGOROSO ATIVADO")
@@ -245,7 +245,7 @@ def filtrar_partidas_por_timing():
     print(f"🎾 TOTAL DE PARTIDAS ENCONTRADAS: {len(eventos_ao_vivo)}")
     print(f"📅 Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     print("")
-    print("🔴 FILTRO RIGOROSO: Só aprova prioridade ≥3")
+    print("🔴 FILTRO RIGOROSO: Só aprova prioridade ≥4")
     print("=" * 80)
     
     for i, evento in enumerate(eventos_ao_vivo, 1):
@@ -276,8 +276,8 @@ def filtrar_partidas_por_timing():
             'evento_completo': evento
         }
         
-        # FILTRO RIGOROSO - SÓ APROVA PRIORIDADE ≥3
-        if entrada_segura and prioridade >= 3:
+        # FILTRO ULTRA RIGOROSO - SÓ APROVA PRIORIDADE ≥4
+        if entrada_segura and prioridade >= 4:
             emoji = "🟢"  # Verde - Aprovado  
             status = "APROVADO"
             incluir_partida = True
@@ -308,7 +308,7 @@ def filtrar_partidas_por_timing():
     print("📊 RESUMO DO FILTRO DE TIMING RIGOROSO")
     print("=" * 80)
     print(f"🎾 Total de partidas analisadas: {len(eventos_ao_vivo)}")
-    print(f"🟢 Partidas aprovadas (prioridade ≥3): {len(partidas_filtradas)}")
+    print(f"🟢 Partidas aprovadas (prioridade ≥4): {len(partidas_filtradas)}")
     print(f"❌ Partidas rejeitadas: {len(eventos_ao_vivo) - len(partidas_filtradas)}")
     
     # Ordenar por prioridade (decrescente)
@@ -324,7 +324,7 @@ def filtrar_partidas_por_timing():
             print(f"      Prioridade: {partida['prioridade']}/5 | Fase: {partida['fase']}")
     
     print(f"\n🕐 Última atualização: {datetime.now().strftime('%H:%M:%S')}")
-    print("🔴 FILTRO RIGOROSO ATIVO - Apenas prioridade ≥3")
+    print("🔴 FILTRO ULTRA RIGOROSO ATIVO - Apenas prioridade ≥4")
     
     return partidas_filtradas
 
