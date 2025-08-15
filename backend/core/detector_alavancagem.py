@@ -19,8 +19,8 @@ from backend.utils.logger_formatado import logger_formatado
 class DetectorAlavancagem:
     def __init__(self):
         # Critérios específicos para alavancagem OTIMIZADOS (baseados em análise de dados reais)
-        self.odd_minima = 1.15  # Era 1.20 - expandido para capturar mais oportunidades
-        self.odd_maxima = 1.60  # Era 1.40 - expandido significativamente (+150% range)
+        self.odd_minima = 7.01  # Aumentado para maior que 7 - apostas de valor alto
+        self.odd_maxima = 15.0  # Era 1.60 - expandido para odds altas
         self.momentum_minimo = 60  # Era 65% - reduzido para ser mais realista
         
     def _converter_odd_float(self, odd_value):
