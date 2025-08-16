@@ -364,273 +364,17 @@ def buscar_odds_partida_atual(event_id):
         print(f"⚠️ Erro ao buscar odds da partida {event_id}: {e}")
         return {'casa': 'N/A', 'visitante': 'N/A'}
 
-def testar_estrategia_tradicional(partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante):
-    """Testa se a partida atende aos critérios da estratégia TRADICIONAL"""
-    
-    # Critérios específicos da TRADICIONAL
-    CRITERIOS = {
-        'EV_MINIMO': 0.15,
-        'MOMENTUM_SCORE_MINIMO': 55,
-        'WIN_1ST_SERVE_MINIMO': 55,
-        'DOUBLE_FAULTS_MAXIMO': 5,
-        'ODDS_MIN': 1.80,
-        'ODDS_MAX': 2.50,
-        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
-        'NOME': 'TRADICIONAL'
-    }
-    
-    print(f"      📊 Testando TRADICIONAL...")
-    
-    # 1. VALIDAÇÃO DE TIMING - PRIORIDADE MÍNIMA
-    prioridade_partida = partida.get('prioridade', 0)
-    prioridade_minima = CRITERIOS['PRIORIDADE_MINIMA']
-    timing_aprovado = prioridade_partida >= prioridade_minima
-    
-    print(f"         ⏰ Timing: Prioridade {prioridade_partida} {'✅' if timing_aprovado else '❌'} (≥{prioridade_minima})")
-    
-    if not timing_aprovado:
-        print(f"         ❌ TRADICIONAL rejeitada - timing insuficiente")
-        return None
-    
-    # Dados dos jogadores
-    ms_casa = dados_casa.get('momentum_score', 0)
-    ms_visitante = dados_visitante.get('momentum_score', 0)
-    w1s_casa = float(dados_casa.get('win_1st_serve', 0)) if dados_casa.get('win_1st_serve') else 0
-    w1s_visitante = float(dados_visitante.get('win_1st_serve', 0)) if dados_visitante.get('win_1st_serve') else 0
-    
-    # Validação individual
-    casa_dominante = (ms_casa >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_casa >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    visitante_dominante = (ms_visitante >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_visitante >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    dominancia_aprovada = casa_dominante or visitante_dominante
-    ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
-    
-    print(f"")
-    print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
-    print(f"")
-    print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
-    
-    if not (dominancia_aprovada and ev_aprovado):
-        print(f"")
-        print(f"         ❌ TRADICIONAL rejeitada")
-        return None
-    
-    # Selecionar jogador target (para estratégias tradicionais)
-    if casa_dominante and not visitante_dominante:
-        jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-    elif visitante_dominante and not casa_dominante:
-        jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    else:
-        if ms_casa >= ms_visitante:
-            jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-        else:
-            jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    
-    # Validações finais - buscar odds atuais
-    odds_atuais = buscar_odds_partida_atual(event_id)
-    odds_jogador = odds_atuais['casa'] if jogador_target['tipo'] == 'HOME' else odds_atuais['visitante']
-    if odds_jogador != 'N/A':
-        try:
-            odds_float = float(odds_jogador)
-            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
-        except:
-            odds_aprovado = False
-    else:
-        odds_aprovado = False
-    
-    df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
-    df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
-    
-    print(f"")
-    print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
-    print(f"")
-    print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
-    
-    if odds_aprovado and df_aprovado:
-        print(f"")
-        print(f"         ✅ TRADICIONAL APROVADA!")
-        return {
-            'partida_id': event_id,
-            'liga': partida['liga'],
-            'jogador': jogador_target['nome'],
-            'oponente': jogador_target['oponente'],
-            'placar': partida['placar'],
-            'fase_timing': partida['fase'],
-            'prioridade_timing': partida['prioridade'],
-            'tipo': jogador_target['tipo'],
-            'ev': jogador_target['dados']['ev'],
-            'momentum': jogador_target['dados']['momentum_score'],
-            'double_faults': jogador_target['dados']['double_faults'],
-            'win_1st_serve': jogador_target['dados']['win_1st_serve'],
-            'estrategia': 'TRADICIONAL',
-            'ms_casa': ms_casa,
-            'ms_visitante': ms_visitante,
-            'w1s_casa': w1s_casa,
-            'w1s_visitante': w1s_visitante
-        }
-    else:
-        print(f"")
-        print(f"         ❌ TRADICIONAL rejeitada na validação final")
-        return None
-
-def testar_estrategia_invertida(partida, dados_casa, dados_visitante, is_alta_tensao, event_id, jogador_casa, jogador_visitante):
-    """Testa se a partida atende aos critérios da estratégia INVERTIDA"""
-    
-    # Critérios específicos da INVERTIDA
-    CRITERIOS = {
-        'EV_MINIMO': 0.1,
-        'MOMENTUM_SCORE_MINIMO': 55,
-        'WIN_1ST_SERVE_MINIMO': 55,
-        'DOUBLE_FAULTS_MAXIMO': 6,
-        'ODDS_MIN': 1.80,
-        'ODDS_MAX': 2.50,
-        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
-        'NOME': 'INVERTIDA'
-    }
-    
-    print(f"      🔄 Testando INVERTIDA...")
-    
-    # 1. VALIDAÇÃO DE TIMING - PRIORIDADE MÍNIMA
-    prioridade_partida = partida.get('prioridade', 0)
-    prioridade_minima = CRITERIOS['PRIORIDADE_MINIMA']
-    timing_aprovado = prioridade_partida >= prioridade_minima
-    
-    print(f"         ⏰ Timing: Prioridade {prioridade_partida} {'✅' if timing_aprovado else '❌'} (≥{prioridade_minima})")
-    
-    if not timing_aprovado:
-        print(f"         ❌ INVERTIDA rejeitada - timing insuficiente")
-        return None
-    
-    # INVERTIDA só ativa em alta tensão
-    if not is_alta_tensao:
-        print(f"         ❌ INVERTIDA rejeitada - não é alta tensão")
-        return None
-    
-    # Dados dos jogadores
-    ms_casa = dados_casa.get('momentum_score', 0)
-    ms_visitante = dados_visitante.get('momentum_score', 0)
-    w1s_casa = float(dados_casa.get('win_1st_serve', 0)) if dados_casa.get('win_1st_serve') else 0
-    w1s_visitante = float(dados_visitante.get('win_1st_serve', 0)) if dados_visitante.get('win_1st_serve') else 0
-    
-    # Validação individual
-    casa_dominante = (ms_casa >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_casa >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    visitante_dominante = (ms_visitante >= CRITERIOS['MOMENTUM_SCORE_MINIMO']) and (w1s_visitante >= CRITERIOS['WIN_1ST_SERVE_MINIMO'])
-    dominancia_aprovada = casa_dominante or visitante_dominante
-    
-    ev_principal = max(dados_casa.get('ev', 0), dados_visitante.get('ev', 0))
-    ev_aprovado = ev_principal >= CRITERIOS['EV_MINIMO']
-    
-    print(f"")
-    print(f"         📊 Dominância: Casa={'✅' if casa_dominante else '❌'}, Visitante={'✅' if visitante_dominante else '❌'}")
-    print(f"")
-    print(f"         ⚡ EV: {ev_principal:.3f} {'✅' if ev_aprovado else '❌'} (≥{CRITERIOS['EV_MINIMO']})")
-    print(f"")
-    print(f"         🔥 Alta Tensão: ✅")
-    
-    if not (dominancia_aprovada and ev_aprovado):
-        print(f"")
-        print(f"         ❌ INVERTIDA rejeitada")
-        return None
-    
-    # Selecionar jogador target (mesmo código das outras)
-    if casa_dominante and not visitante_dominante:
-        jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-    elif visitante_dominante and not casa_dominante:
-        jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    else:
-        if ms_casa >= ms_visitante:
-            jogador_target = {'dados': dados_casa, 'nome': jogador_casa, 'oponente': jogador_visitante, 'tipo': 'HOME'}
-        else:
-            jogador_target = {'dados': dados_visitante, 'nome': jogador_visitante, 'oponente': jogador_casa, 'tipo': 'AWAY'}
-    
-    # Validações finais - buscar odds atuais
-    odds_atuais = buscar_odds_partida_atual(event_id)
-    odds_jogador = odds_atuais['casa'] if jogador_target['tipo'] == 'HOME' else odds_atuais['visitante']
-    if odds_jogador != 'N/A':
-        try:
-            odds_float = float(odds_jogador)
-            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
-        except:
-            odds_aprovado = False
-    else:
-        odds_aprovado = False
-    
-    df_value = int(jogador_target['dados'].get('double_faults', 0)) if jogador_target['dados'].get('double_faults') else 0
-    df_aprovado = df_value <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
-    
-    print(f"")
-    print(f"         💰 Odds: {odds_jogador} {'✅' if odds_aprovado else '❌'}")
-    print(f"")
-    print(f"         🎾 DF: {df_value} {'✅' if df_aprovado else '❌'}")
-    
-    if odds_aprovado and df_aprovado:
-        print(f"")
-        print(f"         ✅ INVERTIDA APROVADA!")
-        return {
-            'partida_id': event_id,
-            'liga': partida['liga'],
-            'jogador': jogador_target['nome'],
-            'oponente': jogador_target['oponente'],
-            'placar': partida['placar'],
-            'fase_timing': partida['fase'],
-            'prioridade_timing': partida['prioridade'],
-            'tipo': jogador_target['tipo'],
-            'ev': jogador_target['dados']['ev'],
-            'momentum': jogador_target['dados']['momentum_score'],
-            'double_faults': jogador_target['dados']['double_faults'],
-            'win_1st_serve': jogador_target['dados']['win_1st_serve'],
-            'estrategia': 'INVERTIDA',
-            'ms_casa': ms_casa,
-            'ms_visitante': ms_visitante,
-            'w1s_casa': w1s_casa,
-            'w1s_visitante': w1s_visitante
-        }
-    else:
-        print(f"")
-        print(f"         ❌ INVERTIDA rejeitada na validação final")
-        return None
-
 def analisar_ev_partidas():
-    """Analisa EV das partidas com filtros refinados."""
+    """Analisa EV das partidas - BASE LIMPA PARA NOVAS ESTRATÉGIAS."""
     
-    print("🎾 SELEÇÃO FINAL - ANÁLISE REFINADA COM 2 ESTRATÉGIAS")
+    print("🎾 SELEÇÃO FINAL - SISTEMA LIMPO PARA NOVAS ESTRATÉGIAS")
     print("=" * 70)
-    print("🔍 Aplicando filtros: ESTRATÉGIAS INDEPENDENTES")
-
-    # 📊 ESTRATÉGIA TRADICIONAL - Para situações normais e equilibradas (independente)
-    CRITERIOS_TRADICIONAL = {
-        'EV_MINIMO': 0.15,            # EV moderado
-        'EV_MAXIMO': 2.0,             # Limite moderado
-        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'DOUBLE_FAULTS_MAXIMO': 5,    # DF ≤ 5 (moderado)
-        'ODDS_MIN': 1.80,             # Odds mínima
-        'ODDS_MAX': 2.50,             # Odds máxima para tradicional
-        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
-        'NOME': 'TRADICIONAL'
-    }
-
-    # 🔄 ESTRATÉGIA INVERTIDA - Para fadiga e 3º sets (independente)
-    CRITERIOS_INVERTIDOS = {
-        'EV_MINIMO': 0.1,             # EV baixo (situações especiais)
-        'EV_MAXIMO': 3.0,             # Permite EVs altos
-        'MOMENTUM_SCORE_MINIMO': 55,  # MS ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'WIN_1ST_SERVE_MINIMO': 55,   # W1S ≥ 55% (MESMO JOGADOR deve ter MS E W1S ≥ 55%)
-        'DOUBLE_FAULTS_MAXIMO': 6,    # DF ≤ 6 (relaxado)
-        'ODDS_MIN': 1.80,             # Odds mínima
-        'ODDS_MAX': 2.50,             # Odds máxima
-        'PRIORIDADE_MINIMA': 4,       # 2º SET MEIO/FINAL - TIMING RIGOROSO
-        'NOME': 'INVERTIDA'
-    }
-    
-    print("🎯 2 ESTRATÉGIAS INDEPENDENTES - Cada uma com seus critérios:")
-    print(f"   📊 TRADICIONAL: EV ≥ {CRITERIOS_TRADICIONAL['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_TRADICIONAL['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_TRADICIONAL['WIN_1ST_SERVE_MINIMO']}%")
-    print(f"   🔄 INVERTIDA: EV ≥ {CRITERIOS_INVERTIDOS['EV_MINIMO']}, MESMO JOGADOR: MS ≥ {CRITERIOS_INVERTIDOS['MOMENTUM_SCORE_MINIMO']}% AND W1S ≥ {CRITERIOS_INVERTIDOS['WIN_1ST_SERVE_MINIMO']}%")
+    print("� Sistema zerado - pronto para implementar novas estratégias")
     
     print("🔴 FILTRO DE TIMING ULTRA RIGOROSO ATIVADO")
     print("============================================================")
-    print("⏰ TIMING ATUALIZADO: PRIORIDADE ≥ 4 (2º SET MEIO/FINAL)")
+    print("⏰ TIMING PADRÃO: PRIORIDADE ≥ 4 (2º SET MEIO/FINAL)")
     print("🎯 Apenas partidas com prioridade 4 ou 5 serão analisadas")
-    print("⚡ Mudança: 3→4 = Filtro mais restritivo para maior precisão")
     print("============================================================")
     
     def verificar_se_e_terceiro_set(placar):
@@ -700,34 +444,18 @@ def analisar_ev_partidas():
         is_pos_tiebreak = verificar_pos_tiebreak(placar)
         is_alta_tensao = is_terceiro_set or is_pos_tiebreak or partida.get('prioridade', 0) == 5
         
-        # 🚀 SISTEMA PARALELO: TESTAR TODAS AS ESTRATÉGIAS INDEPENDENTEMENTE
+        # � SEÇÃO PARA NOVAS ESTRATÉGIAS
         oportunidades_partida = []
         
-        print(f"📊 Testando as 2 estratégias em paralelo...")
+        print(f"📊 Sistema limpo - aguardando implementação de novas estratégias...")
         print(f"   📈 EV Principal: {ev_principal:.3f}")
         print(f"   🎯 Alta Tensão: {'✅' if is_alta_tensao else '❌'}")
+        print(f"   ⏰ Timing: Prioridade {partida.get('prioridade', 0)}")
         
-        # 1️⃣ TESTAR ESTRATÉGIA TRADICIONAL  
-        oportunidade_tradicional = testar_estrategia_tradicional(
-            partida, dados_casa, dados_visitante, ev_principal, event_id, jogador_casa, jogador_visitante
-        )
-        if oportunidade_tradicional:
-            oportunidades_partida.append(oportunidade_tradicional)
-            
-        # 2️⃣ TESTAR ESTRATÉGIA INVERTIDA
-        oportunidade_invertida = testar_estrategia_invertida(
-            partida, dados_casa, dados_visitante, is_alta_tensao, event_id, jogador_casa, jogador_visitante
-        )
-        if oportunidade_invertida:
-            oportunidades_partida.append(oportunidade_invertida)
+        # TODO: Implementar novas estratégias aqui
         
-        # Adicionar TODAS as oportunidades encontradas desta partida
-        if oportunidades_partida:
-            oportunidades_finais.extend(oportunidades_partida)
-            estrategias = [op['estrategia'] for op in oportunidades_partida]
-            print(f"   ✅ {len(oportunidades_partida)} OPORTUNIDADE(S) APROVADA(S): {', '.join(estrategias)}")
-        else:
-            print(f"   ❌ Nenhuma estratégia aprovada para esta partida")
+        # Nenhuma estratégia implementada ainda
+        print(f"   ❌ Nenhuma estratégia implementada ainda")
             
     
     # Resumo final
