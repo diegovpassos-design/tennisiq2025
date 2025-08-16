@@ -366,36 +366,32 @@ def buscar_odds_partida_atual(event_id):
 
 def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_id, jogador_casa, jogador_visitante):
     """
-    🧠 ESTRATÉGIA VIRADA MENTAL
+    🧠 ESTRATÉGIA VIRADA MENTAL - NOVO CRITÉRIO
     
-    Objetivo: Apostar no jogador que perdeu o 1º set, venceu o 2º e está indo bem no 3º set
+    Objetivo: Apostar no jogador que está fazendo virada mental EM TEMPO REAL
+    Critério: Perdeu 1º set + ganhando 2º set por 3+ games de diferença
     Odds ideais: 1.80-2.20 (preferencialmente 1.85-2.05)
+    
+    Exemplos de aprovação:
+    - "3-6,5-2" → Perdeu 1º (3-6), dominando 2º (5-2) = +3 games ✅
+    - "2-6,6-1" → Perdeu 1º (2-6), dominando 2º (6-1) = +5 games ✅
+    - "4-6,4-3" → Perdeu 1º (4-6), liderando 2º (4-3) = +1 game ❌
     """
     
     print(f"      🧠 Testando VIRADA MENTAL...")
     
-    # 1. VERIFICAR SE ESTÁ NO 3º SET
+    # 1. NOVO CRITÉRIO: PERDEU 1º SET E GANHANDO 2º SET POR 3+ GAMES
     placar = partida.get('placar', '')
-    if not _esta_no_terceiro_set(placar):
-        print(f"         ❌ VIRADA MENTAL rejeitada - não está no 3º set")
-        return None
+    jogador_virada = _identificar_virada_em_andamento(placar)
     
-    # 2. IDENTIFICAR QUEM PERDEU 1º SET E VENCEU 2º SET
-    jogador_virada = _identificar_jogador_virada(placar)
     if not jogador_virada:
-        print(f"         ❌ VIRADA MENTAL rejeitada - nenhum jogador fez virada (perdeu 1º, ganhou 2º)")
+        print(f"         ❌ VIRADA MENTAL rejeitada - critério não atendido")
+        print(f"         � Necessário: perdeu 1º set + ganhando 2º set por 3+ games")
         return None
     
-    print(f"         🔄 Jogador da virada identificado: {jogador_virada} (perdeu 1º, ganhou 2º)")
+    print(f"         🔄 VIRADA MENTAL detectada: {jogador_virada} (perdeu 1º, dominando 2º set)")
     
-    # 3. VERIFICAR SE ESTÁ LIDERANDO/IGUALADO NO 3º SET
-    if not _esta_liderando_terceiro_set(placar, jogador_virada):
-        print(f"         ❌ VIRADA MENTAL rejeitada - não está liderando/igualado no 3º set")
-        return None
-    
-    print(f"         ✅ Liderando/igualado no início do 3º set")
-    
-    # 4. SELECIONAR DADOS DO JOGADOR DA VIRADA
+    # 2. SELECIONAR DADOS DO JOGADOR DA VIRADA
     if jogador_virada == 'HOME':
         dados_jogador = dados_casa
         nome_jogador = jogador_casa
@@ -484,7 +480,7 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     # 9. APROVAÇÃO FINAL
     print(f"")
     print(f"         ✅ VIRADA MENTAL APROVADA!")
-    print(f"         🏆 {nome_jogador} demonstrou resiliência mental (virada + dominância)")
+    print(f"         🏆 {nome_jogador} demonstrou virada mental em tempo real!")
     
     return {
         'partida_id': event_id,
@@ -502,8 +498,70 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
         'odds_atual': odds_jogador,
         'odds_ideal': odds_ideal,
         'estrategia': 'VIRADA_MENTAL',
-        'justificativa': f"Perdeu 1º set, ganhou 2º, liderando 3º com {ms}% momentum e {w1s}% 1º serviço"
+        'justificativa': f"Perdeu 1º set, dominando 2º set por 3+ games com {ms}% momentum e {w1s}% 1º serviço"
     }
+
+def _identificar_virada_em_andamento(placar):
+    """
+    🎯 NOVO CRITÉRIO: Identifica virada mental em andamento
+    
+    Critério: Perdeu 1º set + ganhando 2º set por 3+ games de diferença
+    Exemplos válidos:
+    - "3-6,5-2" (perdeu 1º 3-6, ganhando 2º 5-2 = 3 games diferença) ✅
+    - "2-6,6-1" (perdeu 1º 2-6, ganhando 2º 6-1 = 5 games diferença) ✅
+    - "4-6,4-3" (perdeu 1º 4-6, ganhando 2º 4-3 = 1 game diferença) ❌
+    """
+    if not placar:
+        return None
+    
+    try:
+        # Remover espaços e dividir por vírgula
+        sets = [s.strip() for s in placar.split(',')]
+        
+        # Verificar se temos pelo menos 2 sets (1º terminado, 2º em andamento)
+        if len(sets) < 2:
+            return None
+        
+        primeiro_set = sets[0]
+        segundo_set = sets[1]
+        
+        # Verificar formato válido (X-Y)
+        if '-' not in primeiro_set or '-' not in segundo_set:
+            return None
+        
+        # Extrair games do 1º set (terminado)
+        home_1, away_1 = map(int, primeiro_set.split('-'))
+        
+        # Extrair games do 2º set (em andamento)
+        home_2, away_2 = map(int, segundo_set.split('-'))
+        
+        # CRITÉRIO 1: Casa perdeu 1º set E está ganhando 2º por 3+ games
+        if (home_1 < away_1) and (home_2 - away_2 >= 3):
+            print(f"         🎯 VIRADA HOME: Perdeu 1º ({home_1}-{away_1}), dominando 2º ({home_2}-{away_2}) = +{home_2-away_2} games")
+            return 'HOME'
+        
+        # CRITÉRIO 2: Visitante perdeu 1º set E está ganhando 2º por 3+ games  
+        if (away_1 < home_1) and (away_2 - home_2 >= 3):
+            print(f"         🎯 VIRADA AWAY: Perdeu 1º ({away_1}-{home_1}), dominando 2º ({away_2}-{home_2}) = +{away_2-home_2} games")
+            return 'AWAY'
+        
+        # Debug dos critérios não atendidos
+        print(f"         📊 Análise placar '{placar}':")
+        print(f"             1º set: HOME {home_1}-{away_1} AWAY")
+        print(f"             2º set: HOME {home_2}-{away_2} AWAY (diferença: HOME +{home_2-away_2}, AWAY +{away_2-home_2})")
+        
+        if home_1 >= away_1 and away_1 >= home_1:
+            print(f"             ❌ Nenhum jogador perdeu o 1º set claramente")
+        elif (home_1 < away_1) and (home_2 - away_2 < 3):
+            print(f"             ❌ HOME perdeu 1º mas não está dominando 2º (+{home_2-away_2} < 3 games)")
+        elif (away_1 < home_1) and (away_2 - home_2 < 3):
+            print(f"             ❌ AWAY perdeu 1º mas não está dominando 2º (+{away_2-home_2} < 3 games)")
+        
+        return None
+        
+    except Exception as e:
+        print(f"         ⚠️ Erro ao analisar placar '{placar}': {e}")
+        return None
 
 def _esta_no_terceiro_set(placar):
     """Verifica se a partida está no 3º set"""
