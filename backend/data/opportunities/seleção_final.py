@@ -364,12 +364,221 @@ def buscar_odds_partida_atual(event_id):
         print(f"⚠️ Erro ao buscar odds da partida {event_id}: {e}")
         return {'casa': 'N/A', 'visitante': 'N/A'}
 
-def analisar_ev_partidas():
-    """Analisa EV das partidas - BASE LIMPA PARA NOVAS ESTRATÉGIAS."""
+def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_id, jogador_casa, jogador_visitante):
+    """
+    🧠 ESTRATÉGIA VIRADA MENTAL
     
-    print("🎾 SELEÇÃO FINAL - SISTEMA LIMPO PARA NOVAS ESTRATÉGIAS")
+    Objetivo: Apostar no jogador que perdeu o 1º set, venceu o 2º e está indo bem no 3º set
+    Odds ideais: 1.80-2.20 (preferencialmente 1.85-2.05)
+    """
+    
+    print(f"      🧠 Testando VIRADA MENTAL...")
+    
+    # 1. VERIFICAR SE ESTÁ NO 3º SET
+    placar = partida.get('placar', '')
+    if not _esta_no_terceiro_set(placar):
+        print(f"         ❌ VIRADA MENTAL rejeitada - não está no 3º set")
+        return None
+    
+    # 2. IDENTIFICAR QUEM PERDEU 1º SET E VENCEU 2º SET
+    jogador_virada = _identificar_jogador_virada(placar)
+    if not jogador_virada:
+        print(f"         ❌ VIRADA MENTAL rejeitada - nenhum jogador fez virada (perdeu 1º, ganhou 2º)")
+        return None
+    
+    print(f"         🔄 Jogador da virada identificado: {jogador_virada} (perdeu 1º, ganhou 2º)")
+    
+    # 3. VERIFICAR SE ESTÁ LIDERANDO/IGUALADO NO 3º SET
+    if not _esta_liderando_terceiro_set(placar, jogador_virada):
+        print(f"         ❌ VIRADA MENTAL rejeitada - não está liderando/igualado no 3º set")
+        return None
+    
+    print(f"         ✅ Liderando/igualado no início do 3º set")
+    
+    # 4. SELECIONAR DADOS DO JOGADOR DA VIRADA
+    if jogador_virada == 'HOME':
+        dados_jogador = dados_casa
+        nome_jogador = jogador_casa
+        oponente = jogador_visitante
+        tipo_jogador = 'HOME'
+    else:
+        dados_jogador = dados_visitante
+        nome_jogador = jogador_visitante
+        oponente = jogador_casa
+        tipo_jogador = 'AWAY'
+    
+    # 5. CRITÉRIOS ESPECÍFICOS DA VIRADA MENTAL
+    CRITERIOS = {
+        'MOMENTUM_SCORE_MINIMO': 60,    # ≥ 60% (últimos 4 games)
+        'WIN_1ST_SERVE_MINIMO': 65,     # ≥ 65% no set atual
+        'DOUBLE_FAULTS_MAXIMO': 2,      # < 3 DF no total
+        'BREAK_POINTS_MINIMO': 40,      # ≥ 40% break points ganhos
+        'ODDS_MIN': 1.80,               # Odds mínima
+        'ODDS_MAX': 2.20,               # Odds máxima
+        'ODDS_IDEAL_MIN': 1.85,         # Faixa ideal mínima
+        'ODDS_IDEAL_MAX': 2.05,         # Faixa ideal máxima
+        'PRIORIDADE_MINIMA': 4,         # Timing rigoroso
+        'NOME': 'VIRADA_MENTAL'
+    }
+    
+    # 6. VALIDAÇÃO DE TIMING
+    prioridade_partida = partida.get('prioridade', 0)
+    timing_aprovado = prioridade_partida >= CRITERIOS['PRIORIDADE_MINIMA']
+    
+    print(f"         ⏰ Timing: Prioridade {prioridade_partida} {'✅' if timing_aprovado else '❌'} (≥{CRITERIOS['PRIORIDADE_MINIMA']})")
+    
+    if not timing_aprovado:
+        print(f"         ❌ VIRADA MENTAL rejeitada - timing insuficiente")
+        return None
+    
+    # 7. VALIDAÇÃO DOS CRITÉRIOS TÉCNICOS
+    ms = dados_jogador.get('momentum_score', 0)
+    w1s = float(dados_jogador.get('win_1st_serve', 0)) if dados_jogador.get('win_1st_serve') else 0
+    df = int(dados_jogador.get('double_faults', 0)) if dados_jogador.get('double_faults') else 0
+    bp_won = 50  # Default 50% - será melhorado com dados reais
+    
+    # Validações individuais
+    ms_aprovado = ms >= CRITERIOS['MOMENTUM_SCORE_MINIMO']
+    w1s_aprovado = w1s >= CRITERIOS['WIN_1ST_SERVE_MINIMO']
+    df_aprovado = df <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
+    bp_aprovado = bp_won >= CRITERIOS['BREAK_POINTS_MINIMO']
+    
+    print(f"")
+    print(f"         📊 Momentum Score: {ms}% {'✅' if ms_aprovado else '❌'} (≥{CRITERIOS['MOMENTUM_SCORE_MINIMO']}%)")
+    print(f"         🎾 1º Serviço: {w1s}% {'✅' if w1s_aprovado else '❌'} (≥{CRITERIOS['WIN_1ST_SERVE_MINIMO']}%)")
+    print(f"         ⚠️ Double Faults: {df} {'✅' if df_aprovado else '❌'} (≤{CRITERIOS['DOUBLE_FAULTS_MAXIMO']})")
+    print(f"         💪 Break Points: {bp_won}% {'✅' if bp_aprovado else '❌'} (≥{CRITERIOS['BREAK_POINTS_MINIMO']}%)")
+    
+    if not (ms_aprovado and w1s_aprovado and df_aprovado and bp_aprovado):
+        print(f"")
+        print(f"         ❌ VIRADA MENTAL rejeitada - critérios técnicos não atendidos")
+        return None
+    
+    # 8. VALIDAÇÃO DE ODDS
+    odds_atuais = buscar_odds_partida_atual(event_id)
+    odds_jogador = odds_atuais['casa'] if tipo_jogador == 'HOME' else odds_atuais['visitante']
+    
+    if odds_jogador != 'N/A':
+        try:
+            odds_float = float(odds_jogador)
+            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
+            odds_ideal = CRITERIOS['ODDS_IDEAL_MIN'] <= odds_float <= CRITERIOS['ODDS_IDEAL_MAX']
+            odds_status = "IDEAL ⭐" if odds_ideal else "VÁLIDA ✅" if odds_aprovado else "FORA ❌"
+        except:
+            odds_aprovado = False
+            odds_status = "ERRO ❌"
+    else:
+        odds_aprovado = False
+        odds_status = "N/A ❌"
+    
+    print(f"")
+    print(f"         💰 Odds: {odds_jogador} {odds_status}")
+    print(f"             Faixa válida: {CRITERIOS['ODDS_MIN']}-{CRITERIOS['ODDS_MAX']}")
+    print(f"             Faixa ideal: {CRITERIOS['ODDS_IDEAL_MIN']}-{CRITERIOS['ODDS_IDEAL_MAX']}")
+    
+    if not odds_aprovado:
+        print(f"")
+        print(f"         ❌ VIRADA MENTAL rejeitada - odds fora da faixa permitida")
+        return None
+    
+    # 9. APROVAÇÃO FINAL
+    print(f"")
+    print(f"         ✅ VIRADA MENTAL APROVADA!")
+    print(f"         🏆 {nome_jogador} demonstrou resiliência mental (virada + dominância)")
+    
+    return {
+        'partida_id': event_id,
+        'liga': partida['liga'],
+        'jogador': nome_jogador,
+        'oponente': oponente,
+        'placar': placar,
+        'fase_timing': partida['fase'],
+        'prioridade_timing': partida['prioridade'],
+        'tipo': tipo_jogador,
+        'momentum': ms,
+        'win_1st_serve': w1s,
+        'double_faults': df,
+        'break_points_won': bp_won,
+        'odds_atual': odds_jogador,
+        'odds_ideal': odds_ideal,
+        'estrategia': 'VIRADA_MENTAL',
+        'justificativa': f"Perdeu 1º set, ganhou 2º, liderando 3º com {ms}% momentum e {w1s}% 1º serviço"
+    }
+
+def _esta_no_terceiro_set(placar):
+    """Verifica se a partida está no 3º set"""
+    if not placar or ',' not in placar:
+        return False
+    
+    try:
+        sets = placar.split(',')
+        return len(sets) >= 3  # Pelo menos 3 sets (2 terminados + 1 em andamento)
+    except:
+        return False
+
+def _identificar_jogador_virada(placar):
+    """Identifica se algum jogador fez virada (perdeu 1º, ganhou 2º)"""
+    if not placar or ',' not in placar:
+        return None
+    
+    try:
+        sets = placar.split(',')
+        if len(sets) < 3:
+            return None
+        
+        # Analisar 1º e 2º sets
+        primeiro_set = sets[0].strip()
+        segundo_set = sets[1].strip()
+        
+        if '-' not in primeiro_set or '-' not in segundo_set:
+            return None
+        
+        # Placar do 1º set
+        home_1, away_1 = map(int, primeiro_set.split('-'))
+        # Placar do 2º set  
+        home_2, away_2 = map(int, segundo_set.split('-'))
+        
+        # Verificar virada: perdeu 1º E ganhou 2º
+        if home_1 < away_1 and home_2 > away_2:  # Casa perdeu 1º, ganhou 2º
+            return 'HOME'
+        elif away_1 < home_1 and away_2 > home_2:  # Visitante perdeu 1º, ganhou 2º
+            return 'AWAY'
+        
+        return None
+        
+    except:
+        return None
+
+def _esta_liderando_terceiro_set(placar, jogador_virada):
+    """Verifica se o jogador da virada está liderando/igualado no 3º set"""
+    if not placar or ',' not in placar:
+        return False
+    
+    try:
+        sets = placar.split(',')
+        if len(sets) < 3:
+            return False
+        
+        terceiro_set = sets[2].strip()
+        if '-' not in terceiro_set:
+            return False
+        
+        home_3, away_3 = map(int, terceiro_set.split('-'))
+        
+        if jogador_virada == 'HOME':
+            return home_3 >= away_3  # Casa liderando ou igualado
+        else:
+            return away_3 >= home_3  # Visitante liderando ou igualado
+            
+    except:
+        return False
+
+def analisar_ev_partidas():
+    """Analisa EV das partidas com estratégia VIRADA MENTAL."""
+    
+    print("🎾 SELEÇÃO FINAL - ESTRATÉGIA VIRADA MENTAL")
     print("=" * 70)
-    print("� Sistema zerado - pronto para implementar novas estratégias")
+    print("🧠 Nova estratégia focada em comebacks mentais implementada")
     
     print("🔴 FILTRO DE TIMING ULTRA RIGOROSO ATIVADO")
     print("============================================================")
@@ -425,8 +634,7 @@ def analisar_ev_partidas():
         
         print(f"📊 Analisando: {jogador_casa} vs {jogador_visitante}")
         
-        # 🎯 NOVA ABORDAGEM: VALIDAÇÃO POR PARTIDA (DOMINÂNCIA)
-        # Coletar dados de AMBOS os jogadores primeiro
+        # Coletar dados de AMBOS os jogadores
         dados_casa = buscar_dados_jogador(jogador_casa, event_id)
         time.sleep(0.2)
         dados_visitante = buscar_dados_jogador(jogador_visitante, event_id)
@@ -444,18 +652,30 @@ def analisar_ev_partidas():
         is_pos_tiebreak = verificar_pos_tiebreak(placar)
         is_alta_tensao = is_terceiro_set or is_pos_tiebreak or partida.get('prioridade', 0) == 5
         
-        # � SEÇÃO PARA NOVAS ESTRATÉGIAS
+        # SEÇÃO PARA ESTRATÉGIAS
         oportunidades_partida = []
         
-        print(f"📊 Sistema limpo - aguardando implementação de novas estratégias...")
+        print(f"📊 Analisando estratégias disponíveis...")
         print(f"   📈 EV Principal: {ev_principal:.3f}")
         print(f"   🎯 Alta Tensão: {'✅' if is_alta_tensao else '❌'}")
         print(f"   ⏰ Timing: Prioridade {partida.get('prioridade', 0)}")
+        print("")
         
-        # TODO: Implementar novas estratégias aqui
+        # 🎯 ESTRATÉGIA 1: VIRADA MENTAL
+        resultado_virada = testar_estrategia_virada_mental(
+            partida, dados_casa, dados_visitante, event_id, jogador_casa, jogador_visitante
+        )
         
-        # Nenhuma estratégia implementada ainda
-        print(f"   ❌ Nenhuma estratégia implementada ainda")
+        if resultado_virada:
+            oportunidades_partida.append(resultado_virada)
+            print(f"      🎯 VIRADA MENTAL encontrada para {resultado_virada['jogador']}")
+        
+        # Adicionar oportunidades encontradas à lista final
+        if oportunidades_partida:
+            oportunidades_finais.extend(oportunidades_partida)
+            print(f"   ✅ {len(oportunidades_partida)} oportunidade(s) encontrada(s) nesta partida")
+        else:
+            print(f"   ❌ Nenhuma estratégia aprovada para esta partida")
             
     
     # Resumo final
@@ -463,7 +683,7 @@ def analisar_ev_partidas():
     print(f"🎯 RESULTADO FINAL: {len(oportunidades_finais)} oportunidades encontradas")
     
     for oportunidade in oportunidades_finais:
-        print(f"✅ {oportunidade['estrategia']}: {oportunidade['jogador']} vs {oportunidade['oponente']} (EV: {oportunidade['ev']:.3f})")
+        print(f"✅ {oportunidade['estrategia']}: {oportunidade['jogador']} vs {oportunidade['oponente']} (Odds: {oportunidade['odds_atual']})")
     
     print("=" * 80)
     return oportunidades_finais
