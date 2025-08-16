@@ -146,7 +146,6 @@ class TennisIQBot:
         
         # NOVO: Sistema de Vantagem Mental
         self.detector_mental = DetectorVantagemMental()
-        self.apostas_invertidas = []  # Track separado para apostas invertidas
         
         # NOVO: Cache para odds (reduzir requisições duplicadas)
         self.cache_odds = {}
@@ -756,24 +755,19 @@ class TennisIQBot:
             estrategia_nome = oportunidade['estrategia'].lower()
             if 'virada_mental' in estrategia_nome:
                 return 'virada_mental'
-            elif 'invertida' in estrategia_nome:
-                return 'invertida'
-            elif 'tradicional' in estrategia_nome:
-                return 'tradicional'
         
-        # Inferir pela odd range (se disponível)
-        if 'odd_estimada' in oportunidade:
-            odd = oportunidade['odd_estimada']
-            if 1.8 <= odd <= 2.2:
-                return 'invertida'
-        
-        # Inferir pela fase do jogo
+        # Inferir pela fase do jogo (terceiro set = virada mental)
         fase = oportunidade.get('fase', '').lower()
-        if '3set' in fase or 'mid' in fase:
-            return 'invertida'
+        if '3set' in fase or 'terceiro' in fase:
+            return 'virada_mental'
         
-        # Default: tradicional
-        return 'tradicional'
+        # Verificar por critérios específicos da virada mental
+        placar = oportunidade.get('placar', '')
+        if '3' in placar and ('set' in placar.lower() or '-' in placar):
+            return 'virada_mental'
+        
+        # Default: virada_mental (única estratégia ativa)
+        return 'virada_mental'
     
     def validar_filtros_odds(self, oportunidade, odds_data):
         """Valida se a aposta passa nos filtros de odds (1.8 a 2.2)."""
@@ -865,8 +859,8 @@ class TennisIQBot:
 #TennisIQ #ViradaMental"""
         
         else:
-            # Sinal tradicional (fallback)
-            sinal = f"""🎾 TennisIQ - Sinal - Tradicional 🔥
+            # Sinal VIRADA_MENTAL (padrão)
+            sinal = f"""🎾 TennisIQ - Sinal - Virada Mental 🧠
 
 {oponente} vs {jogador_alvo}
 ⏰ {horario}
@@ -875,9 +869,15 @@ class TennisIQBot:
 💰 Odd: {odd_atual}
 ⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
 
+🧠 VIRADA MENTAL DETECTADA:
+• Perdeu 1º set, venceu 2º set
+• Liderando/igualado no 3º set
+• Momentum: {momentum}%
+• {justificativa}
+
 🔗 Link direto: {bet365_link}
 
-#TennisIQ"""
+#TennisIQ #ViradaMental"""
         
         return sinal
     
@@ -1320,22 +1320,17 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 partida_unica_id = f"{partida_id}-{jogadores_ordenados[0]}-{jogadores_ordenados[1]}"
                 sinal_id = f"{partida_unica_id}-{jogador1}"  # ID do sinal específico do jogador
                 
-                # ✅ CORREÇÃO: IDs específicos por estratégia para evitar conflitos
-                sinal_id_tradicional = f"{sinal_id}-TRADICIONAL" 
-                sinal_id_invertida = f"{sinal_id}-INVERTIDA"
+                # ID específico para VIRADA MENTAL
                 sinal_id_virada_mental = f"{sinal_id}-VIRADA_MENTAL"
                 
-                # Verificar se esta PARTIDA já foi processada (independente do jogador)
+                # Verificar se esta PARTIDA já foi processada
                 if partida_unica_id in self.partidas_processadas:
                     print(f"⏭️ Partida já processada: {jogador1} vs {jogador2}")
                     continue
                 
-                # ✅ CORREÇÃO: Verificar sinais por estratégia específica
-                # Verificar se algum sinal desta partida já foi enviado (qualquer estratégia)
-                if (sinal_id_tradicional in self.sinais_enviados or 
-                    sinal_id_invertida in self.sinais_enviados or
-                    sinal_id_virada_mental in self.sinais_enviados):
-                    print(f"⏭️ Algum sinal já enviado para {jogador1} vs {jogador2}")
+                # Verificar se sinal já foi enviado para esta partida
+                if sinal_id_virada_mental in self.sinais_enviados:
+                    print(f"⏭️ Sinal já enviado para {jogador1} vs {jogador2}")
                     continue
                 
                 # Buscar odds atuais
@@ -1345,35 +1340,80 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 else:
                     odds_data = {'jogador1_odd': 'N/A', 'jogador2_odd': 'N/A'}
                 
-                # EXECUTAR ESTRATÉGIAS POR PRIORIDADE (sem conflito de odds)
-                
-                # 1ª PRIORIDADE: INVERTIDA (odds flexíveis)
+                # EXECUTAR ESTRATÉGIA VIRADA MENTAL
                 jogador_analise = oportunidade.get('jogador', 'N/A')
-                logger_formatado.log_estrategia('invertida', 'analise', 'Analisando vantagem mental', jogador_analise)
                 
-                analise_mental = self.analisar_vantagem_mental(oportunidade, odds_data)
-                if analise_mental['inverter_aposta']:
+                # Determinar estratégia para escolher o ID correto
+                estrategia_tipo = self.determinar_estrategia_por_oportunidade(oportunidade)
+                
+                # Processar apenas VIRADA_MENTAL
+                if estrategia_tipo == 'virada_mental':
+                    sinal_id_atual = sinal_id_virada_mental
+                    tipo_sinal = 'VIRADA_MENTAL'
                     
-                    # ESTRATÉGIA INVERTIDA: Apostar no adversário
-                    sinal_invertido = self.preparar_sinal_invertido(analise_mental, oportunidade, odds_data)
-                    if self.enviar_sinal_invertido(sinal_invertido):
-                        # ✅ CORREÇÃO: Usar ID específico da estratégia invertida
-                        self.sinais_enviados.add(sinal_id_invertida)
+                    # Coletar dados dos filtros para armazenamento
+                    dados_filtros = {
+                        'timestamp_entrada': datetime.now().isoformat(),
+                        'ev': oportunidade.get('ev', 0),
+                        'momentum_score': oportunidade.get('momentum', 0),
+                        'double_faults': oportunidade.get('double_faults', 0),
+                        'win_1st_serve': oportunidade.get('win_1st_serve', 0),
+                        'odd_final': odds_data.get('jogador1_odd', 0),
+                        'filtros_aplicados': {
+                            'timing_aprovado': oportunidade.get('prioridade_timing', 0) >= 3,
+                            'ev_range': f"{oportunidade.get('ev', 0):.3f}",
+                            'ms_range': f"{oportunidade.get('momentum', 0):.1f}%",
+                            'df_range': oportunidade.get('double_faults', 0),
+                            'w1s_range': f"{oportunidade.get('win_1st_serve', 0):.1f}%",
+                            'odd_range': f"VIRADA_MENTAL"
+                        },
+                        'fase_timing': oportunidade.get('fase_timing', 'N/A'),
+                        'placar_momento': oportunidade.get('placar', 'N/A'),
+                        'liga': oportunidade.get('liga', 'N/A')
+                    }
+                    # Gerar sinal no formato TennisIQ com dados dos filtros
+                    sinal = self.gerar_sinal_tennisiq(oportunidade, odds_data, dados_filtros)
+                    
+                    # Enviar sinal
+                    if self.enviar_telegram(sinal):
+                        # Usar ID específico da estratégia VIRADA_MENTAL
+                        self.sinais_enviados.add(sinal_id_atual)
                         self.partidas_processadas.add(partida_unica_id)
                         contador_sinais += 1
-                        logger_formatado.log_estrategia('invertida', 'sucesso', f"Sinal enviado", analise_mental['target_final'])
-                        self.rastrear_estrategia('invertida', 'aprovada', 'Sinal enviado', jogador_analise)
-                        print(f"🧠 Sinal INVERTIDO enviado: {analise_mental['target_final']}")
+                        print(f"🎯 Sinal {tipo_sinal} enviado: {oportunidade['jogador']} vs {oportunidade['oponente']}")
+                        print(f"🔒 Partida bloqueada para futuras duplicatas: {partida_unica_id}")
                         
-                        # Log sinal invertido gerado
+                        # Calcular EV se não estiver disponível para log de sinal
+                        ev_partida = oportunidade.get('ev', 0)
+                        odd_valor_sinal = odds_data.get('jogador1_odd', 0)
+                        
+                        if ev_partida == 0:
+                            # Calcular EV usando momentum e odds disponíveis
+                            momentum = oportunidade.get('momentum', 0)
+                            odd_valor_raw = odds_data.get('jogador1_odd', 0)
+                            
+                            # Verificar se a odd é válida (não é "-", "N/A", etc.)
+                            try:
+                                odd_valor_calc = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
+                            except (ValueError, TypeError):
+                                odd_valor_calc = 0
+                                
+                            if momentum > 0 and odd_valor_calc > 1:
+                                try:
+                                    probabilidade = momentum / 100
+                                    ev_partida = (probabilidade * odd_valor_calc) - 1
+                                except:
+                                    ev_partida = 0
+                        
+                        # Log sinal gerado para VIRADA_MENTAL
                         dashboard_logger.log_sinal_gerado(
-                            tipo='INVERTIDO',
-                            target=analise_mental['target_final'],
-                            odd=analise_mental['odd_alvo'],
-                            ev=analise_mental['ev_estimado'],
-                            confianca=analise_mental['confianca'],
-                            mental_score=analise_mental['score_mental'],
-                            fatores_mentais=analise_mental['fatores_detectados']
+                            tipo=tipo_sinal,
+                            target=oportunidade['jogador'],
+                            odd=odd_valor_sinal,
+                            ev=ev_partida,
+                            confianca=80.0,
+                            mental_score=oportunidade.get('momentum', 0),
+                            fatores_mentais=[oportunidade.get('justificativa', '')]
                         )
                         
                         # Coletar estatísticas reais para o dashboard
@@ -1386,242 +1426,30 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             placar=oportunidade.get('placar', 'N/A'),
                             odds1=odds_data.get('jogador1_odd', 0),
                             odds2=odds_data.get('jogador2_odd', 0),
-                            ev=analise_mental['ev_estimado'],
+                            ev=ev_partida,
                             momentum_score=oportunidade.get('momentum', 0),
                             timing_priority=oportunidade.get('prioridade_timing', 0),
-                            mental_score=analise_mental['score_mental'],
-                            decisao='SINAL_INVERTIDO',
-                            motivo=f"Vantagem mental detectada: {analise_mental['score_mental']} pontos",
+                            mental_score=oportunidade.get('momentum', 0),
+                            decisao=f'SINAL_{tipo_sinal}',
+                            motivo=f'Aprovado pela estratégia {tipo_sinal}',
                             stats_jogador1=stats_reais.get('stats_jogador1', {}),
                             stats_jogador2=stats_reais.get('stats_jogador2', {})
                         )
-                        continue  # Sucesso - pular estratégia tradicional
-                else:
-                    # Log de rejeição da estratégia invertida
-                    motivo = analise_mental.get('motivo_rejeicao', 'Critérios de vantagem mental não atendidos')
-                    logger_formatado.log_estrategia('invertida', 'rejeicao', motivo, jogador_analise)
-                    self.rastrear_estrategia('invertida', 'rejeitada', motivo, jogador_analise)
-                
-                # 2ª PRIORIDADE: TRADICIONAL (odds 1.8-2.2 + filtros rigorosos)
-                logger_formatado.log_estrategia('tradicional', 'analise', 'Validando filtros rigorosos', jogador1)
-                
-                # FILTRO CRÍTICO: Validar odds entre 1.8 e 2.2 (só para tradicional)
-                odds_valida, odd_valor = self.validar_filtros_odds(oportunidade, odds_data)
-                if not odds_valida:
-                    logger_formatado.log_estrategia('tradicional', 'rejeicao', f'Odds fora do range 1.8-2.2', jogador1)
-                    self.rastrear_estrategia('tradicional', 'rejeitada', 'Odds fora do range 1.8-2.2', jogador1)
-                    
-                    # Coletar estatísticas reais para o dashboard
-                    stats_reais = self.coletar_estatisticas_reais(event_id)
-                    
-                    # Calcular EV se não estiver disponível
-                    ev_partida = oportunidade.get('ev', 0)
-                    if ev_partida == 0:
-                        # Calcular EV usando momentum e odds disponíveis
-                        momentum = oportunidade.get('momentum', 0)
-                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
                         
-                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
-                        try:
-                            odd_valor = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
-                        except (ValueError, TypeError):
-                            odd_valor = 0
-                            
-                        if momentum > 0 and odd_valor > 1:
+                        # Registrar aposta automaticamente no sistema de resultados
+                        if RESULTADOS_DISPONIVEL and integrador_resultados:
                             try:
-                                probabilidade = momentum / 100
-                                ev_partida = (probabilidade * odd_valor) - 1
-                                # Debug suprimido: print(f"🧮 EV calculado: MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
-                            except:
-                                ev_partida = 0
-                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV: MS={momentum}, Odd={odd_valor_raw}")
-                        else:
-                            # Debug suprimido: print(f"⚠️ EV não calculado: MS={momentum}, Odd={odd_valor_raw} (inválida)")
-                            ev_partida = 0
-                    
-                    # Log partida rejeitada por odds (tradicional)
-                    dashboard_logger.log_partida_analisada(
-                        jogador1=jogador1,
-                        jogador2=oportunidade.get('oponente', 'N/A'),
-                        placar=oportunidade.get('placar', 'N/A'),
-                        odds1=odds_data.get('jogador1_odd', 0),
-                        odds2=odds_data.get('jogador2_odd', 0),
-                        ev=ev_partida,
-                        momentum_score=oportunidade.get('momentum', 0),
-                        timing_priority=oportunidade.get('prioridade_timing', 0),
-                        mental_score=analise_mental.get('score_mental', 0),
-                        decisao='REJEITADO',
-                        motivo='Odds fora do range 1.8-2.2 (estratégia tradicional)',
-                        stats_jogador1=stats_reais.get('stats_jogador1', {}),
-                        stats_jogador2=stats_reais.get('stats_jogador2', {})
-                    )
-                    continue
-                
-                # ESTRATÉGIA TRADICIONAL: Aplicar novos filtros rígidos
-                if not self.aplicar_filtros_rigidos(oportunidade):
-                    logger_formatado.log_estrategia('tradicional', 'rejeicao', 'Rejeitada pelos filtros rígidos', jogador1)
-                    self.rastrear_estrategia('tradicional', 'rejeitada', 'Filtros rígidos', jogador1)
-                    
-                    # Coletar estatísticas reais para o dashboard
-                    stats_reais = self.coletar_estatisticas_reais(event_id)
-                    
-                    # Calcular EV se não estiver disponível
-                    ev_partida = oportunidade.get('ev', 0)
-                    if ev_partida == 0:
-                        # Calcular EV usando momentum e odds disponíveis
-                        momentum = oportunidade.get('momentum', 0)
-                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
-                        
-                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
-                        try:
-                            odd_valor = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
-                        except (ValueError, TypeError):
-                            odd_valor = 0
-                            
-                        if momentum > 0 and odd_valor > 1:
-                            try:
-                                probabilidade = momentum / 100
-                                ev_partida = (probabilidade * odd_valor) - 1
-                                # Debug suprimido: print(f"🧮 EV calculado (filtros rígidos): MS={momentum}%, Odd={odd_valor} → EV={ev_partida:.3f}")
-                            except:
-                                ev_partida = 0
-                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV (filtros rígidos): MS={momentum}, Odd={odd_valor_raw}")
-                        else:
-                            # Debug suprimido: print(f"⚠️ EV não calculado (filtros rígidos): MS={momentum}, Odd={odd_valor_raw} (inválida)")
-                            ev_partida = 0
-                    
-                    # Log partida rejeitada por filtros rígidos
-                    dashboard_logger.log_partida_analisada(
-                        jogador1=jogador1,
-                        jogador2=oportunidade.get('oponente', 'N/A'),
-                        placar=oportunidade.get('placar', 'N/A'),
-                        odds1=odds_data.get('jogador1_odd', 0),
-                        odds2=odds_data.get('jogador2_odd', 0),
-                        ev=ev_partida,
-                        momentum_score=oportunidade.get('momentum', 0),
-                        timing_priority=oportunidade.get('prioridade_timing', 0),
-                        mental_score=analise_mental.get('score_mental', 0),
-                        decisao='REJEITADO',
-                        motivo='Não passou nos filtros rígidos (EV/MS/W1S)',
-                        stats_jogador1=stats_reais.get('stats_jogador1', {}),
-                        stats_jogador2=stats_reais.get('stats_jogador2', {})
-                    )
-                    continue
-                
-                # Coletar dados dos filtros para armazenamento
-                dados_filtros = {
-                    'timestamp_entrada': datetime.now().isoformat(),
-                    'ev': oportunidade.get('ev', 0),
-                    'momentum_score': oportunidade.get('momentum', 0),
-                    'double_faults': oportunidade.get('double_faults', 0),
-                    'win_1st_serve': oportunidade.get('win_1st_serve', 0),
-                    'odd_final': odd_valor,
-                    'filtros_aplicados': {
-                        'timing_aprovado': oportunidade.get('prioridade_timing', 0) >= 3,
-                        'ev_range': f"{oportunidade.get('ev', 0):.3f}",
-                        'ms_range': f"{oportunidade.get('momentum', 0):.1f}%",
-                        'df_range': oportunidade.get('double_faults', 0),
-                        'w1s_range': f"{oportunidade.get('win_1st_serve', 0):.1f}%",
-                        'odd_range': f"{odd_valor:.2f} (1.8-2.2)"
-                    },
-                    'fase_timing': oportunidade.get('fase_timing', 'N/A'),
-                    'placar_momento': oportunidade.get('placar', 'N/A'),
-                    'liga': oportunidade.get('liga', 'N/A')
-                }
-                
-                # Determinar estratégia para escolher o ID correto
-                estrategia_tipo = self.determinar_estrategia_por_oportunidade(oportunidade)
-                
-                # Escolher ID baseado na estratégia
-                if estrategia_tipo == 'virada_mental':
-                    sinal_id_atual = sinal_id_virada_mental
-                    tipo_sinal = 'VIRADA_MENTAL'
-                elif estrategia_tipo == 'invertida':
-                    sinal_id_atual = sinal_id_invertida
-                    tipo_sinal = 'INVERTIDA'
+                                aposta_id = integrador_resultados.registrar_aposta_automatica(oportunidade, odds_data, dados_filtros)
+                                if aposta_id:
+                                    print(f"📊 Aposta registrada para verificação: {aposta_id}")
+                                    print(f"🔍 Dados dos filtros armazenados: EV={dados_filtros['ev']:.3f}, MS={dados_filtros['momentum_score']:.1f}%, DF={dados_filtros['double_faults']}, W1S={dados_filtros['win_1st_serve']:.1f}%")
+                            except Exception as e:
+                                print(f"⚠️ Erro ao registrar aposta: {e}")
+                    else:
+                        print(f"❌ Falha ao enviar sinal: {oportunidade['jogador']} vs {oportunidade['oponente']}")
                 else:
-                    sinal_id_atual = sinal_id_tradicional
-                    tipo_sinal = 'TRADICIONAL'
-                
-                # Gerar sinal no formato TennisIQ com dados dos filtros
-                sinal = self.gerar_sinal_tennisiq(oportunidade, odds_data, dados_filtros)
-                
-                # Enviar sinal
-                if self.enviar_telegram(sinal):
-                    # Usar ID específico da estratégia detectada
-                    self.sinais_enviados.add(sinal_id_atual)
-                    self.partidas_processadas.add(partida_unica_id)  # Marcar partida como processada
-                    contador_sinais += 1
-                    print(f"🎯 Sinal {tipo_sinal} enviado: {oportunidade['jogador']} vs {oportunidade['oponente']}")
-                    print(f"🔒 Partida bloqueada para futuras duplicatas: {partida_unica_id}")
-                    
-                    # Calcular EV se não estiver disponível para log de sinal
-                    ev_partida = oportunidade.get('ev', 0)
-                    if ev_partida == 0:
-                        # Calcular EV usando momentum e odds disponíveis
-                        momentum = oportunidade.get('momentum', 0)
-                        odd_valor_raw = odds_data.get('jogador1_odd', 0)
-                        
-                        # Verificar se a odd é válida (não é "-", "N/A", etc.)
-                        try:
-                            odd_valor_calc = float(odd_valor_raw) if odd_valor_raw not in ['-', 'N/A', None, ''] else 0
-                        except (ValueError, TypeError):
-                            odd_valor_calc = 0
-                            
-                        if momentum > 0 and odd_valor_calc > 1:
-                            try:
-                                probabilidade = momentum / 100
-                                ev_partida = (probabilidade * odd_valor_calc) - 1
-                                # Debug suprimido: print(f"🧮 EV calculado (sinal gerado): MS={momentum}%, Odd={odd_valor_calc} → EV={ev_partida:.3f}")
-                            except:
-                                ev_partida = 0
-                                # Debug suprimido: print(f"⚠️ Erro no cálculo EV (sinal gerado): MS={momentum}, Odd={odd_valor_raw}")
-                        else:
-                            # Debug suprimido: print(f"⚠️ EV não calculado (sinal gerado): MS={momentum}, Odd={odd_valor_raw} (inválida)")
-                            ev_partida = 0
-                    
-                    # Log sinal gerado baseado na estratégia
-                    dashboard_logger.log_sinal_gerado(
-                        tipo=tipo_sinal,
-                        target=oportunidade['jogador'],
-                        odd=odd_valor,
-                        ev=ev_partida,
-                        confianca=80.0 if tipo_sinal == 'VIRADA_MENTAL' else 70.0,
-                        mental_score=oportunidade.get('momentum', 0) if tipo_sinal == 'VIRADA_MENTAL' else None,
-                        fatores_mentais=[oportunidade.get('justificativa', '')] if tipo_sinal == 'VIRADA_MENTAL' else None
-                    )
-                    
-                    # Coletar estatísticas reais para o dashboard
-                    stats_reais = self.coletar_estatisticas_reais(event_id)
-                    
-                    # Log partida analisada com sucesso
-                    dashboard_logger.log_partida_analisada(
-                        jogador1=jogador1,
-                        jogador2=oportunidade.get('oponente', 'N/A'),
-                        placar=oportunidade.get('placar', 'N/A'),
-                        odds1=odds_data.get('jogador1_odd', 0),
-                        odds2=odds_data.get('jogador2_odd', 0),
-                        ev=ev_partida,
-                        momentum_score=oportunidade.get('momentum', 0),
-                        timing_priority=oportunidade.get('prioridade_timing', 0),
-                        mental_score=analise_mental.get('score_mental', 0) if 'analise_mental' in locals() else oportunidade.get('momentum', 0),
-                        decisao=f'SINAL_{tipo_sinal}',
-                        motivo=f'Aprovado pela estratégia {tipo_sinal}',
-                        stats_jogador1=stats_reais.get('stats_jogador1', {}),
-                        stats_jogador2=stats_reais.get('stats_jogador2', {})
-                    )
-                    
-                    # Registrar aposta automaticamente no sistema de resultados
-                    if RESULTADOS_DISPONIVEL and integrador_resultados:
-                        try:
-                            aposta_id = integrador_resultados.registrar_aposta_automatica(oportunidade, odds_data, dados_filtros)
-                            if aposta_id:
-                                print(f"📊 Aposta registrada para verificação: {aposta_id}")
-                                print(f"🔍 Dados dos filtros armazenados: EV={dados_filtros['ev']:.3f}, MS={dados_filtros['momentum_score']:.1f}%, DF={dados_filtros['double_faults']}, W1S={dados_filtros['win_1st_serve']:.1f}%")
-                        except Exception as e:
-                            print(f"⚠️ Erro ao registrar aposta: {e}")
-                else:
-                    print(f"❌ Falha ao enviar sinal: {oportunidade['jogador']} vs {oportunidade['oponente']}")
+                    # Estratégia não reconhecida - pular
+                    print(f"⚠️ Estratégia não reconhecida para: {oportunidade['jogador']} vs {oportunidade['oponente']}")
                 
                 # Pequena pausa entre sinais
                 time.sleep(1)  # Reduzido de 2 para 1 segundo
@@ -1633,46 +1461,6 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
             print(f"✅ {contador_sinais} sinal(is) TennisIQ enviado(s) com sucesso!")
         else:
             print("📭 Nenhum sinal novo para enviar neste ciclo")
-    
-    def analisar_vantagem_mental(self, oportunidade, odds_data):
-        """
-        Analisa se o adversário tem vantagem mental para inverter a aposta
-        """
-        try:
-            # Preparar dados para o detector
-            partida_data = {
-                'favorito': {
-                    'nome': oportunidade.get('jogador'),
-                    'odd': self.extrair_odd_jogador(odds_data, oportunidade.get('jogador'))
-                },
-                'adversario': {
-                    'nome': oportunidade.get('oponente'),
-                    'odd': self.extrair_odd_oponente(odds_data, oportunidade.get('oponente'))
-                },
-                'score': oportunidade.get('placar', ''),
-                'contexto': self.identificar_contexto_partida(oportunidade)
-            }
-            
-            # Usar o detector de vantagem mental
-            analise = self.detector_mental.analisar_partida(partida_data)
-            
-            # NOVO: Validar timing inteligente para estratégia invertida
-            if analise.get('inverter_aposta'):
-                timing_aprovado = self.validar_timing_inteligente(
-                    oportunidade, 
-                    'INVERTIDA', 
-                    analise.get('score_mental', 0)
-                )
-                if not timing_aprovado:
-                    logger_formatado.log_estrategia('invertida', 'rejeicao', 'Timing inadequado', oportunidade.get('jogador', 'N/A'))
-                    analise['inverter_aposta'] = False
-                    analise['motivo_rejeicao'] = 'Timing inadequado para estratégia invertida'
-            
-            return analise
-            
-        except Exception as e:
-            print(f"⚠️ Erro na análise de vantagem mental: {e}")
-            return {'inverter_aposta': False, 'erro': str(e)}
     
     def validar_timing_inteligente(self, oportunidade, estrategia_tipo, score_mental=0):
         """
@@ -1894,41 +1682,22 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
         
         return ', '.join(contexto) if contexto else 'início da partida'
     
-    def preparar_sinal_invertido(self, analise_mental, oportunidade, odds_data):
-        """Prepara sinal para aposta invertida"""
-        return {
-            'tipo': 'INVERTIDA',
-            'jogador_alvo': analise_mental['target_final'],
-            'odd_alvo': analise_mental['odd_alvo'],
-            'ev_estimado': analise_mental['ev_estimado'],
-            'score_mental': analise_mental['score_mental'],
-            'fatores_mentais': analise_mental['fatores_detectados'],
-            'confianca': analise_mental['confianca'],
-            'justificativa': analise_mental['justificativa'],
-            'partida_original': f"{oportunidade.get('jogador')} vs {oportunidade.get('oponente')}",
-            'prioridade': 5,
-            'estrategia': 'VANTAGEM_MENTAL',
-            'timestamp': datetime.now().isoformat()
-        }
-    
-    def enviar_sinal_invertido(self, sinal):
-        """Envia sinal de aposta invertida no formato padrão TennisIQ"""
+    def aplicar_filtros_rigidos(self, oportunidade):
+        """
+        Aplica filtros rigorosos de produção - ADAPTADO PARA VIRADA_MENTAL
+        """
         try:
-            # Extrair dados básicos
-            jogador_alvo = sinal['jogador_alvo']
-            odd_alvo = sinal['odd_alvo']
-            partida_original = sinal['partida_original']
+            # Para VIRADA_MENTAL, usamos critérios mais flexíveis
+            # Momentum Score mínimo para virada mental é menor (50%)
+            momentum = oportunidade.get('momentum', 0)
+            if momentum < 50:
+                return False
             
-            # Determinar oponente (extrair do formato "Jogador vs Oponente")
-            if ' vs ' in partida_original:
-                jogadores = partida_original.split(' vs ')
-                # O oponente é quem não é o jogador alvo
-                oponente = jogadores[1] if jogadores[0] == jogador_alvo else jogadores[0]
-            else:
-                oponente = "Oponente"
+            return True
             
-            # Calcular odd mínima
-            odd_minima = self.calcular_odd_minima(odd_alvo)
+        except Exception as e:
+            print(f"⚠️ Erro nos filtros rígidos: {e}")
+            return False
             
             # Usar horário de Brasília (UTC-3)
             agora = datetime.now(timezone(timedelta(hours=-3)))
