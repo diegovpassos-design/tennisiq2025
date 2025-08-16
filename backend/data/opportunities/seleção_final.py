@@ -407,9 +407,9 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     CRITERIOS = {
         'MOMENTUM_SCORE_MINIMO': 60,    # ≥ 60% (últimos 4 games)
         'WIN_1ST_SERVE_MINIMO': 65,     # ≥ 65% no set atual
-        'DOUBLE_FAULTS_MAXIMO': 2,      # < 3 DF no total
+        'DOUBLE_FAULTS_MAXIMO': 4,      # ≤ 4 DF no total (alterado de 2 para 4)
         'BREAK_POINTS_MINIMO': 40,      # ≥ 40% break points ganhos
-        'ODDS_MIN': 1.80,               # Odds mínima
+        'ODDS_MIN': 1.70,               # Odds mínima (alterado de 1.80 para 1.70)
         'ODDS_MAX': 2.20,               # Odds máxima
         'ODDS_IDEAL_MIN': 1.85,         # Faixa ideal mínima
         'ODDS_IDEAL_MAX': 2.05,         # Faixa ideal máxima
