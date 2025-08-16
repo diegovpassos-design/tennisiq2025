@@ -754,7 +754,9 @@ class TennisIQBot:
         # Verificar se tem informação de estratégia na oportunidade
         if 'estrategia' in oportunidade:
             estrategia_nome = oportunidade['estrategia'].lower()
-            if 'invertida' in estrategia_nome:
+            if 'virada_mental' in estrategia_nome:
+                return 'virada_mental'
+            elif 'invertida' in estrategia_nome:
                 return 'invertida'
             elif 'tradicional' in estrategia_nome:
                 return 'tradicional'
@@ -832,8 +834,39 @@ class TennisIQBot:
         event_id = oportunidade.get('partida_id', '')
         bet365_link = bet365_manager.generate_link(event_id)
         
-        # Montar sinal básico
-        sinal = f"""🎾 TennisIQ - Sinal - Tradicional 🔥
+        # Determinar tipo de estratégia
+        estrategia_tipo = self.determinar_estrategia_por_oportunidade(oportunidade)
+        
+        # Gerar sinal específico para cada estratégia
+        if estrategia_tipo == 'virada_mental':
+            # Sinal específico para VIRADA MENTAL
+            placar = oportunidade.get('placar', 'N/A')
+            momentum = oportunidade.get('momentum', 0)
+            justificativa = oportunidade.get('justificativa', 'Estratégia de comeback mental')
+            
+            sinal = f"""🧠 TennisIQ - Sinal - VIRADA MENTAL 🔥
+
+{oponente} vs {jogador_alvo}
+⏰ {horario}
+📊 Placar: {placar}
+
+🚀 APOSTAR EM: {jogador_alvo} 🚀
+💰 Odd: {odd_atual}
+⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
+
+🧠 VIRADA MENTAL DETECTADA:
+• Perdeu 1º set, venceu 2º set
+• Liderando/igualado no 3º set
+• Momentum: {momentum}%
+• {justificativa}
+
+🔗 Link direto: {bet365_link}
+
+#TennisIQ #ViradaMental"""
+        
+        else:
+            # Sinal tradicional (fallback)
+            sinal = f"""🎾 TennisIQ - Sinal - Tradicional 🔥
 
 {oponente} vs {jogador_alvo}
 ⏰ {horario}
@@ -1290,6 +1323,7 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # ✅ CORREÇÃO: IDs específicos por estratégia para evitar conflitos
                 sinal_id_tradicional = f"{sinal_id}-TRADICIONAL" 
                 sinal_id_invertida = f"{sinal_id}-INVERTIDA"
+                sinal_id_virada_mental = f"{sinal_id}-VIRADA_MENTAL"
                 
                 # Verificar se esta PARTIDA já foi processada (independente do jogador)
                 if partida_unica_id in self.partidas_processadas:
@@ -1299,7 +1333,8 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                 # ✅ CORREÇÃO: Verificar sinais por estratégia específica
                 # Verificar se algum sinal desta partida já foi enviado (qualquer estratégia)
                 if (sinal_id_tradicional in self.sinais_enviados or 
-                    sinal_id_invertida in self.sinais_enviados):
+                    sinal_id_invertida in self.sinais_enviados or
+                    sinal_id_virada_mental in self.sinais_enviados):
                     print(f"⏭️ Algum sinal já enviado para {jogador1} vs {jogador2}")
                     continue
                 
@@ -1494,16 +1529,30 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                     'liga': oportunidade.get('liga', 'N/A')
                 }
                 
+                # Determinar estratégia para escolher o ID correto
+                estrategia_tipo = self.determinar_estrategia_por_oportunidade(oportunidade)
+                
+                # Escolher ID baseado na estratégia
+                if estrategia_tipo == 'virada_mental':
+                    sinal_id_atual = sinal_id_virada_mental
+                    tipo_sinal = 'VIRADA_MENTAL'
+                elif estrategia_tipo == 'invertida':
+                    sinal_id_atual = sinal_id_invertida
+                    tipo_sinal = 'INVERTIDA'
+                else:
+                    sinal_id_atual = sinal_id_tradicional
+                    tipo_sinal = 'TRADICIONAL'
+                
                 # Gerar sinal no formato TennisIQ com dados dos filtros
                 sinal = self.gerar_sinal_tennisiq(oportunidade, odds_data, dados_filtros)
                 
                 # Enviar sinal
                 if self.enviar_telegram(sinal):
-                    # ✅ CORREÇÃO: Usar ID específico da estratégia tradicional
-                    self.sinais_enviados.add(sinal_id_tradicional)
+                    # Usar ID específico da estratégia detectada
+                    self.sinais_enviados.add(sinal_id_atual)
                     self.partidas_processadas.add(partida_unica_id)  # Marcar partida como processada
                     contador_sinais += 1
-                    print(f"🎯 Sinal TennisIQ enviado: {oportunidade['jogador']} vs {oportunidade['oponente']}")
+                    print(f"🎯 Sinal {tipo_sinal} enviado: {oportunidade['jogador']} vs {oportunidade['oponente']}")
                     print(f"🔒 Partida bloqueada para futuras duplicatas: {partida_unica_id}")
                     
                     # Calcular EV se não estiver disponível para log de sinal
@@ -1531,13 +1580,15 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                             # Debug suprimido: print(f"⚠️ EV não calculado (sinal gerado): MS={momentum}, Odd={odd_valor_raw} (inválida)")
                             ev_partida = 0
                     
-                    # Log sinal tradicional gerado
+                    # Log sinal gerado baseado na estratégia
                     dashboard_logger.log_sinal_gerado(
-                        tipo='TRADICIONAL',
+                        tipo=tipo_sinal,
                         target=oportunidade['jogador'],
                         odd=odd_valor,
                         ev=ev_partida,
-                        confianca=70.0  # Confiança base para sinais tradicionais
+                        confianca=80.0 if tipo_sinal == 'VIRADA_MENTAL' else 70.0,
+                        mental_score=oportunidade.get('momentum', 0) if tipo_sinal == 'VIRADA_MENTAL' else None,
+                        fatores_mentais=[oportunidade.get('justificativa', '')] if tipo_sinal == 'VIRADA_MENTAL' else None
                     )
                     
                     # Coletar estatísticas reais para o dashboard
@@ -1553,9 +1604,9 @@ Partida teve algum problema, aposta anulada! 🤷‍♂️
                         ev=ev_partida,
                         momentum_score=oportunidade.get('momentum', 0),
                         timing_priority=oportunidade.get('prioridade_timing', 0),
-                        mental_score=analise_mental.get('score_mental', 0),
-                        decisao='SINAL_TRADICIONAL',
-                        motivo='Aprovado por todos os filtros rígidos',
+                        mental_score=analise_mental.get('score_mental', 0) if 'analise_mental' in locals() else oportunidade.get('momentum', 0),
+                        decisao=f'SINAL_{tipo_sinal}',
+                        motivo=f'Aprovado pela estratégia {tipo_sinal}',
                         stats_jogador1=stats_reais.get('stats_jogador1', {}),
                         stats_jogador2=stats_reais.get('stats_jogador2', {})
                     )
