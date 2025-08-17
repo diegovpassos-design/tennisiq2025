@@ -848,12 +848,6 @@ class TennisIQBot:
 💰 Odd: {odd_atual}
 ⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
 
-🧠 VIRADA MENTAL DETECTADA:
-• Perdeu 1º set, venceu 2º set
-• Liderando/igualado no 3º set
-• Momentum: {momentum}%
-• {justificativa}
-
 🔗 Link direto: {bet365_link}
 
 #TennisIQ #ViradaMental"""
@@ -868,12 +862,6 @@ class TennisIQBot:
 🚀 APOSTAR EM: {jogador_alvo} 🚀
 💰 Odd: {odd_atual}
 ⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
-
-🧠 VIRADA MENTAL DETECTADA:
-• Perdeu 1º set, venceu 2º set
-• Liderando/igualado no 3º set
-• Momentum: {momentum}%
-• {justificativa}
 
 🔗 Link direto: {bet365_link}
 
