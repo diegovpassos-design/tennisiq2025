@@ -276,14 +276,17 @@ def filtrar_partidas_por_timing():
             'evento_completo': evento
         }
         
-        # FILTRO ULTRA RIGOROSO - SÓ APROVA PRIORIDADE ≥4
-        if entrada_segura and prioridade >= 4:
+        # FILTRO ULTRA RIGOROSO - SÓ APROVA PRIORIDADE EXATAMENTE 4
+        if entrada_segura and prioridade == 4:
             emoji = "🟢"  # Verde - Aprovado  
             status = "APROVADO"
             incluir_partida = True
         else:
             emoji = "🔴"  # Vermelho - Rejeitado
-            status = f"REJEITADO (Prio {prioridade})"
+            if prioridade > 4:
+                status = f"REJEITADO (Prio {prioridade} - 3º set rejeitado)"
+            else:
+                status = f"REJEITADO (Prio {prioridade})"
             incluir_partida = False
         
         print(f"{emoji} PARTIDA {i} - {status}")
@@ -308,7 +311,7 @@ def filtrar_partidas_por_timing():
     print("📊 RESUMO DO FILTRO DE TIMING RIGOROSO")
     print("=" * 80)
     print(f"🎾 Total de partidas analisadas: {len(eventos_ao_vivo)}")
-    print(f"🟢 Partidas aprovadas (prioridade ≥4): {len(partidas_filtradas)}")
+    print(f"🟢 Partidas aprovadas (prioridade = 4): {len(partidas_filtradas)}")
     print(f"❌ Partidas rejeitadas: {len(eventos_ao_vivo) - len(partidas_filtradas)}")
     
     # Ordenar por prioridade (decrescente)
@@ -324,7 +327,7 @@ def filtrar_partidas_por_timing():
             print(f"      Prioridade: {partida['prioridade']}/5 | Fase: {partida['fase']}")
     
     print(f"\n🕐 Última atualização: {datetime.now().strftime('%H:%M:%S')}")
-    print("🔴 FILTRO ULTRA RIGOROSO ATIVO - Apenas prioridade ≥4")
+    print("🔴 FILTRO ULTRA RIGOROSO ATIVO - Apenas prioridade = 4")
     
     return partidas_filtradas
 
