@@ -369,24 +369,24 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     🧠 ESTRATÉGIA VIRADA MENTAL - NOVO CRITÉRIO
     
     Objetivo: Apostar no jogador que está fazendo virada mental EM TEMPO REAL
-    Critério: Perdeu 1º set + ganhando 2º set por 3+ games de diferença
+    Critério: Perdeu 1º set + ganhando 2º set por 1+ games de diferença
     Odds ideais: 1.80-2.20 (preferencialmente 1.85-2.05)
     
     Exemplos de aprovação:
     - "3-6,5-2" → Perdeu 1º (3-6), dominando 2º (5-2) = +3 games ✅
     - "2-6,6-1" → Perdeu 1º (2-6), dominando 2º (6-1) = +5 games ✅
-    - "4-6,4-3" → Perdeu 1º (4-6), liderando 2º (4-3) = +1 game ❌
+    - "4-6,4-3" → Perdeu 1º (4-6), liderando 2º (4-3) = +1 game ✅
     """
     
     print(f"      🧠 Testando VIRADA MENTAL...")
     
-    # 1. NOVO CRITÉRIO: PERDEU 1º SET E GANHANDO 2º SET POR 3+ GAMES
+    # 1. NOVO CRITÉRIO: PERDEU 1º SET E GANHANDO 2º SET POR 1+ GAMES
     placar = partida.get('placar', '')
     jogador_virada = _identificar_virada_em_andamento(placar)
     
     if not jogador_virada:
         print(f"         ❌ VIRADA MENTAL rejeitada - critério não atendido")
-        print(f"         � Necessário: perdeu 1º set + ganhando 2º set por 3+ games")
+        print(f"         � Necessário: perdeu 1º set + ganhando 2º set por 1+ games")
         return None
     
     print(f"         🔄 VIRADA MENTAL detectada: {jogador_virada} (perdeu 1º, dominando 2º set)")
@@ -405,8 +405,8 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     
     # 5. CRITÉRIOS ESPECÍFICOS DA VIRADA MENTAL
     CRITERIOS = {
-        'MOMENTUM_SCORE_MINIMO': 58,    # ≥ 58% (últimos 4 games)
-        'WIN_1ST_SERVE_MINIMO': 58,     # ≥ 58% no set atual
+        'MOMENTUM_SCORE_MINIMO': 55,    # ≥ 55% (últimos 4 games)
+        'WIN_1ST_SERVE_MINIMO': 55,     # ≥ 55% no set atual
         'DOUBLE_FAULTS_MAXIMO': 4,      # ≤ 4 DF no total (alterado de 2 para 4)
         'BREAK_POINTS_MINIMO': 40,      # ≥ 40% break points ganhos
         'ODDS_MIN': 1.70,               # Odds mínima (alterado de 1.80 para 1.70)
@@ -418,9 +418,15 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
         'NOME': 'VIRADA_MENTAL'
     }
     
-    # 6. CRITÉRIOS TÉCNICOS (timing já validado no filtro inicial)
+    # 6. VALIDAÇÃO DE TIMING ULTRA RIGOROSO
     prioridade_partida = partida.get('prioridade', 0)
-    print(f"         ⏰ Timing: Prioridade {prioridade_partida} ✅ (pré-aprovado)")
+    timing_aprovado = prioridade_partida == CRITERIOS['PRIORIDADE_MINIMA']  # Exatamente igual a 4
+    
+    print(f"         ⏰ Timing: Prioridade {prioridade_partida} {'✅' if timing_aprovado else '❌'} (= {CRITERIOS['PRIORIDADE_MINIMA']})")
+    
+    if not timing_aprovado:
+        print(f"         ❌ VIRADA MENTAL rejeitada - timing insuficiente")
+        return None
     
     # 7. VALIDAÇÃO DOS CRITÉRIOS TÉCNICOS
     ms = dados_jogador.get('momentum_score', 0)
@@ -635,8 +641,8 @@ def analisar_ev_partidas():
     
     print("🔴 FILTRO DE TIMING ULTRA RIGOROSO ATIVADO")
     print("============================================================")
-    print("⏰ TIMING PADRÃO: PRIORIDADE ≥ 4 (2º SET MEIO/FINAL)")
-    print("🎯 Apenas partidas com prioridade 4 ou 5 serão analisadas")
+    print("⏰ TIMING ULTRA RIGOROSO: PRIORIDADE = 4 (2º SET MEIO/FINAL)")
+    print("🎯 Apenas partidas com prioridade exatamente 4 serão analisadas")
     print("============================================================")
     
     def verificar_se_e_terceiro_set(placar):
