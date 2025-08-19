@@ -366,11 +366,19 @@ def buscar_odds_partida_atual(event_id):
 
 def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_id, jogador_casa, jogador_visitante):
     """
-    🧠 ESTRATÉGIA VIRADA MENTAL - NOVO CRITÉRIO
+    🧠 ESTRATÉGIA VIRADA MENTAL - CRITÉRIOS APRIMORADOS
     
     Objetivo: Apostar no jogador que está fazendo virada mental EM TEMPO REAL
-    Critério: Perdeu 1º set + ganhando 2º set por 1+ games de diferença
-    Odds ideais: 1.80-2.20 (preferencialmente 1.85-2.05)
+    Critério Principal: Perdeu 1º set + ganhando 2º set por 1+ games de diferença
+    Odds: 1.70-2.20 (preferencialmente 1.85-2.05)
+    
+    Critérios Técnicos Básicos:
+    - Momentum Score ≥ 55% | 1º Serviço ≥ 55% | Double Faults ≤ 4 | Break Points ≥ 40%
+    
+    🚀 NOVOS CRITÉRIOS DE DOMINÂNCIA NO RETORNO:
+    - Games de Retorno ≥ 35% (quebrando o adversário)
+    - Break Defense ≤ 60% (adversário vulnerável no saque)
+    - Controle de Pontos ≥ 58% (dominando a maioria dos pontos)
     
     Exemplos de aprovação:
     - "3-6,5-2" → Perdeu 1º (3-6), dominando 2º (5-2) = +3 games ✅
@@ -409,6 +417,11 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
         'WIN_1ST_SERVE_MINIMO': 55,     # ≥ 55% no set atual
         'DOUBLE_FAULTS_MAXIMO': 4,      # ≤ 4 DF no total (alterado de 2 para 4)
         'BREAK_POINTS_MINIMO': 40,      # ≥ 40% break points ganhos
+        # NOVOS CRITÉRIOS - DOMINÂNCIA NO RETORNO
+        'RETURN_GAMES_MINIMO': 35,      # ≥ 35% games de retorno ganhos
+        'BREAK_DEFENSE_MAXIMO': 60,     # ≤ 60% break points salvos (adversário vulnerável)
+        'TOTAL_POINTS_MINIMO': 58,      # ≥ 58% total de pontos ganhos
+        # ODDS (mantidas originais)
         'ODDS_MIN': 1.70,               # Odds mínima (alterado de 1.80 para 1.70)
         'ODDS_MAX': 2.20,               # Odds máxima
         'ODDS_IDEAL_MIN': 1.85,         # Faixa ideal mínima
@@ -434,19 +447,38 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     df = int(dados_jogador.get('double_faults', 0)) if dados_jogador.get('double_faults') else 0
     bp_won = 50  # Default 50% - será melhorado com dados reais
     
-    # Validações individuais
+    # NOVOS CRITÉRIOS - DOMINÂNCIA NO RETORNO
+    return_games = float(dados_jogador.get('return_games_won', 0)) if dados_jogador.get('return_games_won') else 0
+    break_defense = float(dados_jogador.get('break_points_saved', 100)) if dados_jogador.get('break_points_saved') else 100  # Default 100% se não tiver dados
+    total_points = float(dados_jogador.get('total_points_won', 0)) if dados_jogador.get('total_points_won') else 0
+    
+    # Validações individuais - critérios existentes
     ms_aprovado = ms >= CRITERIOS['MOMENTUM_SCORE_MINIMO']
     w1s_aprovado = w1s >= CRITERIOS['WIN_1ST_SERVE_MINIMO']
     df_aprovado = df <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
     bp_aprovado = bp_won >= CRITERIOS['BREAK_POINTS_MINIMO']
+    
+    # Validações individuais - novos critérios de dominância
+    return_aprovado = return_games >= CRITERIOS['RETURN_GAMES_MINIMO']
+    defense_aprovado = break_defense <= CRITERIOS['BREAK_DEFENSE_MAXIMO']  # Adversário vulnerável
+    points_aprovado = total_points >= CRITERIOS['TOTAL_POINTS_MINIMO']
     
     print(f"")
     print(f"         📊 Momentum Score: {ms}% {'✅' if ms_aprovado else '❌'} (≥{CRITERIOS['MOMENTUM_SCORE_MINIMO']}%)")
     print(f"         🎾 1º Serviço: {w1s}% {'✅' if w1s_aprovado else '❌'} (≥{CRITERIOS['WIN_1ST_SERVE_MINIMO']}%)")
     print(f"         ⚠️ Double Faults: {df} {'✅' if df_aprovado else '❌'} (≤{CRITERIOS['DOUBLE_FAULTS_MAXIMO']})")
     print(f"         💪 Break Points: {bp_won}% {'✅' if bp_aprovado else '❌'} (≥{CRITERIOS['BREAK_POINTS_MINIMO']}%)")
+    print(f"")
+    print(f"         🚀 DOMINÂNCIA NO RETORNO:")
+    print(f"         🎯 Games Retorno: {return_games}% {'✅' if return_aprovado else '❌'} (≥{CRITERIOS['RETURN_GAMES_MINIMO']}%)")
+    print(f"         🛡️ Break Defense Adv: {break_defense}% {'✅' if defense_aprovado else '❌'} (≤{CRITERIOS['BREAK_DEFENSE_MAXIMO']}%)")
+    print(f"         💪 Controle Pontos: {total_points}% {'✅' if points_aprovado else '❌'} (≥{CRITERIOS['TOTAL_POINTS_MINIMO']}%)")
     
-    if not (ms_aprovado and w1s_aprovado and df_aprovado and bp_aprovado):
+    # Verificar se TODOS os critérios foram atendidos (existentes + novos)
+    todos_criterios = (ms_aprovado and w1s_aprovado and df_aprovado and bp_aprovado and 
+                      return_aprovado and defense_aprovado and points_aprovado)
+    
+    if not todos_criterios:
         print(f"")
         print(f"         ❌ VIRADA MENTAL rejeitada - critérios técnicos não atendidos")
         return None
@@ -638,11 +670,17 @@ def analisar_ev_partidas():
     print("🎾 SELEÇÃO FINAL - ESTRATÉGIA VIRADA MENTAL")
     print("=" * 70)
     print("🧠 Nova estratégia focada em comebacks mentais implementada")
+    print("🚀 NOVOS FILTROS DE DOMINÂNCIA NO RETORNO ATIVADOS")
     
     print("🔴 FILTRO DE TIMING ULTRA RIGOROSO ATIVADO")
     print("============================================================")
     print("⏰ TIMING ULTRA RIGOROSO: PRIORIDADE = 4 (2º SET MEIO/FINAL)")
     print("🎯 Apenas partidas com prioridade exatamente 4 serão analisadas")
+    print("")
+    print("🚀 CRITÉRIOS DE DOMINÂNCIA NO RETORNO:")
+    print("   • Games de Retorno ≥ 35% (quebrando o adversário)")
+    print("   • Break Defense ≤ 60% (adversário vulnerável)")
+    print("   • Controle de Pontos ≥ 58% (dominando a partida)")
     print("============================================================")
     
     def verificar_se_e_terceiro_set(placar):
