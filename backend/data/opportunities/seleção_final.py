@@ -252,7 +252,12 @@ def buscar_dados_jogador(jogador_nome, event_id):
         'momentum_score': 50,
         'double_faults': 0,
         'win_1st_serve': 0,
-        'ev': 0
+        'ev': 0,
+        # Campos REAIS da API B365 para Supremacia Técnica Simplificada
+        'aces': 0,
+        'break_point_conversions': 0,
+        'ranking': 999,
+        'name': jogador_nome
     }
     
     try:
@@ -293,6 +298,75 @@ def buscar_dados_jogador(jogador_nome, event_id):
                             dados_jogador['double_faults'] = int(stats_info['jogador1_df'])
                             dados_jogador['win_1st_serve'] = int(stats_info['jogador1_w1s'])
                             
+                            # Extrair estatísticas REAIS da API B365
+                            stats_det = stats_info.get('stats_detalhadas', {})
+                            
+                            # Aces (campo real da API)
+                            if 'aces' in stats_det and len(stats_det['aces']) >= 1:
+                                try:
+                                    dados_jogador['aces'] = int(stats_det['aces'][0])
+                                except:
+                                    pass
+                            
+                            # Double Faults (campo real da API)
+                            if 'double_faults' in stats_det and len(stats_det['double_faults']) >= 1:
+                                try:
+                                    dados_jogador['double_faults'] = int(stats_det['double_faults'][0])
+                                except:
+                                    pass
+                            
+                            # Win 1st Serve % (campo real da API)
+                            if 'win_1st_serve' in stats_det and len(stats_det['win_1st_serve']) >= 1:
+                                try:
+                                    dados_jogador['win_1st_serve'] = float(stats_det['win_1st_serve'][0])
+                                except:
+                                    pass
+                            
+                            # Break Point Conversions % (campo real da API)
+                            if 'break_point_conversions' in stats_det and len(stats_det['break_point_conversions']) >= 1:
+                                try:
+                                    dados_jogador['break_point_conversions'] = float(stats_det['break_point_conversions'][0])
+                                except:
+                                    pass
+                            
+                            # Buscar ranking do jogador HOME no endpoint correto
+                            try:
+                                # Buscar dados detalhados no endpoint /v3/event/view que tem rankings
+                                url_view = f"{base_url}/v3/event/view"
+                                params_view = {'event_id': event_id, 'token': api_key}
+                                response_view = requests.get(url_view, params=params_view, timeout=10)
+                                
+                                if response_view.status_code == 200:
+                                    data_view = response_view.json()
+                                    if data_view.get('success') == 1 and 'results' in data_view:
+                                        result_view = data_view['results'][0] if isinstance(data_view['results'], list) else data_view['results']
+                                        home_pos = result_view.get('extra', {}).get('home_pos', 999)
+                                        dados_jogador['ranking'] = int(home_pos) if home_pos and home_pos != 999 else 999
+                                    else:
+                                        dados_jogador['ranking'] = 999
+                                else:
+                                    dados_jogador['ranking'] = 999
+                            except:
+                                dados_jogador['ranking'] = 999
+                                try:
+                                    dados_jogador['total_points_won'] = int(stats_det['total_points_won'][0])
+                                except:
+                                    pass
+                            
+                            # Winners
+                            if 'winners' in stats_det and len(stats_det['winners']) >= 1:
+                                try:
+                                    dados_jogador['winners'] = int(stats_det['winners'][0])
+                                except:
+                                    pass
+                            
+                            # Unforced errors
+                            if 'unforced_errors' in stats_det and len(stats_det['unforced_errors']) >= 1:
+                                try:
+                                    dados_jogador['unforced_errors'] = int(stats_det['unforced_errors'][0])
+                                except:
+                                    pass
+                            
                             # Calcular EV para HOME (usando mesma lógica do ev.py)
                             if odds_info['jogador1_odd'] != 'N/A' and odds_info['jogador1_odd'] != '-':
                                 try:
@@ -306,6 +380,57 @@ def buscar_dados_jogador(jogador_nome, event_id):
                             dados_jogador['momentum_score'] = float(stats_info['jogador2_ms'])
                             dados_jogador['double_faults'] = int(stats_info['jogador2_df'])
                             dados_jogador['win_1st_serve'] = int(stats_info['jogador2_w1s'])
+                            
+                            # Extrair estatísticas REAIS da API B365 para jogador AWAY
+                            stats_det = stats_info.get('stats_detalhadas', {})
+                            
+                            # Aces (campo real da API - índice 1 para away)
+                            if 'aces' in stats_det and len(stats_det['aces']) >= 2:
+                                try:
+                                    dados_jogador['aces'] = int(stats_det['aces'][1])
+                                except:
+                                    pass
+                            
+                            # Double Faults (campo real da API - índice 1 para away)
+                            if 'double_faults' in stats_det and len(stats_det['double_faults']) >= 2:
+                                try:
+                                    dados_jogador['double_faults'] = int(stats_det['double_faults'][1])
+                                except:
+                                    pass
+                            
+                            # Win 1st Serve % (campo real da API - índice 1 para away)
+                            if 'win_1st_serve' in stats_det and len(stats_det['win_1st_serve']) >= 2:
+                                try:
+                                    dados_jogador['win_1st_serve'] = float(stats_det['win_1st_serve'][1])
+                                except:
+                                    pass
+                            
+                            # Break Point Conversions % (campo real da API - índice 1 para away)
+                            if 'break_point_conversions' in stats_det and len(stats_det['break_point_conversions']) >= 2:
+                                try:
+                                    dados_jogador['break_point_conversions'] = float(stats_det['break_point_conversions'][1])
+                                except:
+                                    pass
+                            
+                            # Buscar ranking do jogador AWAY no endpoint correto
+                            try:
+                                # Buscar dados detalhados no endpoint /v3/event/view que tem rankings
+                                url_view = f"{base_url}/v3/event/view"
+                                params_view = {'event_id': event_id, 'token': api_key}
+                                response_view = requests.get(url_view, params=params_view, timeout=10)
+                                
+                                if response_view.status_code == 200:
+                                    data_view = response_view.json()
+                                    if data_view.get('success') == 1 and 'results' in data_view:
+                                        result_view = data_view['results'][0] if isinstance(data_view['results'], list) else data_view['results']
+                                        away_pos = result_view.get('extra', {}).get('away_pos', 999)
+                                        dados_jogador['ranking'] = int(away_pos) if away_pos and away_pos != 999 else 999
+                                    else:
+                                        dados_jogador['ranking'] = 999
+                                else:
+                                    dados_jogador['ranking'] = 999
+                            except:
+                                dados_jogador['ranking'] = 999
                             
                             # Calcular EV para AWAY (usando mesma lógica do ev.py)
                             if odds_info['jogador2_odd'] != 'N/A' and odds_info['jogador2_odd'] != '-':
@@ -665,48 +790,76 @@ def testar_estrategia_supremacia_tecnica(partida, dados_casa, dados_visitante, e
 
 def _avaliar_supremacia_tecnica(dados_jogador, criterios):
     """
-    Avalia se um jogador demonstra supremacia técnica baseado nos critérios
+    Avalia se um jogador demonstra supremacia técnica - VERSÃO SIMPLIFICADA
+    
+    Usa apenas dados REAIS da API B365:
+    - Aces vs Double Faults (eficiência no saque)  
+    - Win 1st Serve % (consistência)
+    - Break Point Conversions % (pressão)
+    - Ranking (vantagem técnica esperada)
     """
     try:
-        # DOMINÂNCIA NO SAQUE
-        first_serve = float(dados_jogador.get('first_serve_percentage', 0))
+        nome_jogador = dados_jogador.get('name', 'Jogador')
+        
+        # Campos disponíveis na API B365
         aces = int(dados_jogador.get('aces', 0))
-        service_games = float(dados_jogador.get('service_games_won_percentage', 0))
+        double_faults = int(dados_jogador.get('double_faults', 0))
+        win_1st_serve = float(dados_jogador.get('win_1st_serve', 0))
+        break_conversions = float(dados_jogador.get('break_point_conversions', 0))
+        ranking = int(dados_jogador.get('ranking', 999))
         
-        # PRESSÃO NO RETORNO
-        return_points = float(dados_jogador.get('return_points_won_percentage', 0))
-        break_points_created = int(dados_jogador.get('break_points_opportunities', 0))
+        # Verificar se temos dados mínimos
+        if win_1st_serve == 0:
+            print(f"         ⚠️ {nome_jogador} - Dados insuficientes para supremacia técnica")
+            return False
         
-        # CONTROLE GERAL
-        total_points = float(dados_jogador.get('total_points_won_percentage', 0))
-        winners = int(dados_jogador.get('winners', 0))
-        errors = int(dados_jogador.get('unforced_errors', 1))  # Evitar divisão por zero
-        winners_errors_ratio = winners / errors if errors > 0 else 0
+        # 1. EFICIÊNCIA NO SAQUE (Aces - Double Faults + Win 1st Serve%)
+        saque_liquido = aces - double_faults  # Diferença líquida
+        eficiencia_saque = (saque_liquido * 2) + (win_1st_serve * 0.8)  # Peso para % 1st serve
         
-        # VERIFICAÇÕES INDIVIDUAIS
-        saque_dominante = (first_serve >= criterios['FIRST_SERVE_MINIMO'] and 
-                          aces >= criterios['ACES_MINIMO'] and 
-                          service_games >= criterios['SERVICE_GAMES_MINIMO'])
+        # 2. PRESSÃO NO BREAK (Break Point Conversions%)
+        pressao_break = break_conversions * 1.5  # Amplificar importância
         
-        retorno_superior = (return_points >= criterios['RETURN_POINTS_MINIMO'] and 
-                           break_points_created >= criterios['BREAK_POINTS_CREATED_MINIMO'])
+        # 3. VANTAGEM DE RANKING (quanto menor o número, melhor)
+        vantagem_ranking = max(0, (200 - ranking) / 200 * 100)  # Normalizar de 0-100
         
-        controle_total = (total_points >= criterios['TOTAL_POINTS_MINIMO'] and 
-                         winners_errors_ratio >= criterios['WINNERS_ERRORS_RATIO_MINIMO'])
+        # 4. ÍNDICE DE DOMINÂNCIA TÉCNICA COMBINADO
+        indice_dominancia = (
+            eficiencia_saque * 0.40 +      # 40% - eficiência no saque
+            pressao_break * 0.35 +          # 35% - pressão no break
+            vantagem_ranking * 0.25         # 25% - vantagem de ranking
+        )
+        
+        # CRITÉRIOS SIMPLIFICADOS:
+        criterios_check = {
+            'saque_eficiente': saque_liquido >= 5,  # Pelo menos 5 aces líquidos
+            'primeiro_saque': win_1st_serve >= 70,  # 70%+ no 1º saque
+            'break_pressure': break_conversions >= 30,  # 30%+ conversão break
+            'ranking_top': ranking <= 150  # Top 150 ranking
+        }
+        
+        criterios_atendidos = sum(criterios_check.values())
         
         # LOGGING DOS CRITÉRIOS
-        nome_jogador = dados_jogador.get('name', 'Jogador')
-        print(f"         📊 {nome_jogador} - Análise Supremacia:")
-        print(f"         🎾 Saque: {first_serve}%/{aces}aces/{service_games}% {'✅' if saque_dominante else '❌'}")
-        print(f"         🎯 Retorno: {return_points}%/{break_points_created}bp {'✅' if retorno_superior else '❌'}")
-        print(f"         💪 Controle: {total_points}%/{winners_errors_ratio:.1f}ratio {'✅' if controle_total else '❌'}")
+        print(f"         📊 {nome_jogador} - Análise Supremacia Técnica:")
+        print(f"         🎾 Aces líquidos: {saque_liquido} ({aces}A - {double_faults}DF) {'✅' if criterios_check['saque_eficiente'] else '❌'}")
+        print(f"         🎯 1º saque: {win_1st_serve}% {'✅' if criterios_check['primeiro_saque'] else '❌'}")
+        print(f"         � Break conversão: {break_conversions}% {'✅' if criterios_check['break_pressure'] else '❌'}")
+        print(f"         🏆 Ranking: #{ranking} {'✅' if criterios_check['ranking_top'] else '❌'}")
+        print(f"         ⚡ Índice Dominância: {indice_dominancia:.1f}")
+        print(f"         📈 Critérios: {criterios_atendidos}/4 atendidos")
         
-        # SUPREMACIA = TODOS OS 3 CRITÉRIOS
-        supremacia = saque_dominante and retorno_superior and controle_total
+        # TEM SUPREMACIA se:
+        # - Índice > 60 E pelo menos 2 critérios atendidos
+        # OU Índice > 80 (dominância clara)
+        tem_supremacia = (
+            (indice_dominancia > 60.0 and criterios_atendidos >= 2) or
+            indice_dominancia > 80.0
+        )
         
-        print(f"         🏆 Supremacia: {'✅ DETECTADA' if supremacia else '❌ NÃO DETECTADA'}")
+        print(f"         🏆 Supremacia: {'✅ DETECTADA' if tem_supremacia else '❌ NÃO DETECTADA'}")
         
-        return supremacia
+        return tem_supremacia
         
     except Exception as e:
         print(f"         ⚠️ Erro ao avaliar supremacia técnica: {e}")

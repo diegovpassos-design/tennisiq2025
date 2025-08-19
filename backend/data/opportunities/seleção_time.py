@@ -227,10 +227,10 @@ def analisar_fase_jogo(placar_str):
 
 def filtrar_partidas_por_timing():
     """
-    FILTRO DE TIMING RIGOROSO - Só aprova partidas com prioridade ≥4 (2º set meio/final).
+    FILTRO DE TIMING MELHORADO - Aprova partidas com prioridade ≥3 (estratégias duplas).
     """
     
-    print("🔴 FILTRO DE TIMING RIGOROSO ATIVADO")
+    print("🔴 FILTRO DUPLO DE TIMING ATIVADO")
     print("=" * 60)
     
     # Buscar eventos ao vivo
@@ -245,7 +245,7 @@ def filtrar_partidas_por_timing():
     print(f"🎾 TOTAL DE PARTIDAS ENCONTRADAS: {len(eventos_ao_vivo)}")
     print(f"📅 Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     print("")
-    print("🔴 FILTRO RIGOROSO: Só aprova prioridade ≥4")
+    print("🔴 FILTRO RIGOROSO: Aprova prioridade ≥3 (estratégias duplas)")
     print("=" * 80)
     
     for i, evento in enumerate(eventos_ao_vivo, 1):
@@ -276,8 +276,8 @@ def filtrar_partidas_por_timing():
             'evento_completo': evento
         }
         
-        # FILTRO ULTRA RIGOROSO - SÓ APROVA PRIORIDADE EXATAMENTE 4
-        if entrada_segura and prioridade == 4:
+        # FILTRO MELHORADO - ACEITA PRIORIDADE 3-4 (ESTRATÉGIAS DUPLAS)
+        if entrada_segura and prioridade >= 3:
             emoji = "🟢"  # Verde - Aprovado  
             status = "APROVADO"
             incluir_partida = True
@@ -308,10 +308,10 @@ def filtrar_partidas_por_timing():
     
     # Resumo
     print("\n" + "=" * 80)
-    print("📊 RESUMO DO FILTRO DE TIMING RIGOROSO")
+    print("📊 RESUMO DO FILTRO DUPLO DE TIMING")
     print("=" * 80)
     print(f"🎾 Total de partidas analisadas: {len(eventos_ao_vivo)}")
-    print(f"🟢 Partidas aprovadas (prioridade = 4): {len(partidas_filtradas)}")
+    print(f"🟢 Partidas aprovadas (prioridade ≥3): {len(partidas_filtradas)}")
     print(f"❌ Partidas rejeitadas: {len(eventos_ao_vivo) - len(partidas_filtradas)}")
     
     # Ordenar por prioridade (decrescente)
@@ -327,7 +327,7 @@ def filtrar_partidas_por_timing():
             print(f"      Prioridade: {partida['prioridade']}/5 | Fase: {partida['fase']}")
     
     print(f"\n🕐 Última atualização: {datetime.now().strftime('%H:%M:%S')}")
-    print("🔴 FILTRO ULTRA RIGOROSO ATIVO - Apenas prioridade = 4")
+    print("🔴 FILTRO DUPLO ATIVO - Prioridade ≥3 (VIRADA MENTAL + SUPREMACIA TÉCNICA)")
     
     return partidas_filtradas
 
