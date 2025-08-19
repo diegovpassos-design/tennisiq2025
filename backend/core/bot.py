@@ -752,8 +752,10 @@ class TennisIQBot:
         """Determina qual estratégia gerou a oportunidade baseada nos dados."""
         # Verificar se tem informação de estratégia na oportunidade
         if 'estrategia' in oportunidade:
-            estrategia_nome = oportunidade['estrategia'].lower()
-            if 'virada_mental' in estrategia_nome:
+            estrategia_nome = oportunidade['estrategia'].upper()
+            if 'SUPREMACIA_TECNICA' in estrategia_nome:
+                return 'supremacia_tecnica'
+            elif 'VIRADA_MENTAL' in estrategia_nome:
                 return 'virada_mental'
         
         # Inferir pela fase do jogo (terceiro set = virada mental)
@@ -766,7 +768,18 @@ class TennisIQBot:
         if '3' in placar and ('set' in placar.lower() or '-' in placar):
             return 'virada_mental'
         
-        # Default: virada_mental (única estratégia ativa)
+        # Verificar odds para determinar estratégia (supremacia = odds menores)
+        odds_atual = oportunidade.get('odds_atual', '0')
+        try:
+            odds_float = float(odds_atual) if odds_atual not in ['N/A', '-', ''] else 0
+            if 1.60 <= odds_float <= 1.90:
+                return 'supremacia_tecnica'
+            elif 1.70 <= odds_float <= 2.20:
+                return 'virada_mental'
+        except:
+            pass
+        
+        # Default: virada_mental (compatibilidade)
         return 'virada_mental'
     
     def validar_filtros_odds(self, oportunidade, odds_data):
@@ -836,36 +849,60 @@ class TennisIQBot:
             # Sinal específico para VIRADA MENTAL
             placar = oportunidade.get('placar', 'N/A')
             momentum = oportunidade.get('momentum', 0)
-            justificativa = oportunidade.get('justificativa', 'Estratégia de comeback mental')
             
-            sinal = f"""🧠 TennisIQ - Sinal - VIRADA MENTAL 🔥
+            sinal = f"""🧠 TennisIQ - VIRADA MENTAL 🔥
 
 {oponente} vs {jogador_alvo}
 ⏰ {horario}
 📊 Placar: {placar}
+🎯 Momentum: {momentum}%
 
 🚀 APOSTAR EM: {jogador_alvo} 🚀
 💰 Odd: {odd_atual}
-⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
+⚠️ Limite Mínimo: {odd_minima}
 
-🔗 Link direto: {bet365_link}
+📈 Comeback mental em tempo real!
+🔗 {bet365_link}
 
 #TennisIQ #ViradaMental"""
         
+        elif estrategia_tipo == 'supremacia_tecnica':
+            # Sinal específico para SUPREMACIA TÉCNICA
+            first_serve = oportunidade.get('first_serve_pct', 0)
+            aces = oportunidade.get('aces', 0)
+            total_points = oportunidade.get('total_points_won', 0)
+            
+            sinal = f"""🏆 TennisIQ - SUPREMACIA TÉCNICA ⚡
+
+{oponente} vs {jogador_alvo}
+⏰ {horario}
+🎾 1º Serviço: {first_serve}%
+� Aces: {aces}
+💪 Controle: {total_points}%
+
+🚀 APOSTAR EM: {jogador_alvo} 🚀
+💰 Odd: {odd_atual}
+⚠️ Limite Mínimo: {odd_minima}
+
+📊 Dominância técnica clara!
+🔗 {bet365_link}
+
+#TennisIQ #SupremaciaTecnica"""
+        
         else:
-            # Sinal VIRADA_MENTAL (padrão)
-            sinal = f"""🎾 TennisIQ - Sinal - Virada Mental 🧠
+            # Sinal padrão (compatibilidade)
+            sinal = f"""🎾 TennisIQ - Sinal Tênis 🧠
 
 {oponente} vs {jogador_alvo}
 ⏰ {horario}
 
 🚀 APOSTAR EM: {jogador_alvo} 🚀
 💰 Odd: {odd_atual}
-⚠️ Limite Mínimo: {odd_minima} (não apostar abaixo)
+⚠️ Limite Mínimo: {odd_minima}
 
-🔗 Link direto: {bet365_link}
+🔗 {bet365_link}
 
-#TennisIQ #ViradaMental"""
+#TennisIQ"""
         
         return sinal
     
