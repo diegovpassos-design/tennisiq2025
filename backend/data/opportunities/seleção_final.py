@@ -534,6 +534,184 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
         'justificativa': f"Perdeu 1º set, dominando 2º set por 1+ games com {ms}% momentum e {w1s}% 1º serviço"
     }
 
+
+def testar_estrategia_supremacia_tecnica(partida, dados_casa, dados_visitante, event_id, jogador_casa, jogador_visitante):
+    """
+    🏆 ESTRATÉGIA SUPREMACIA TÉCNICA - COMPLEMENTAR À VIRADA MENTAL
+    
+    Objetivo: Apostar no jogador tecnicamente superior que ainda oferece valor nas odds
+    Situação: Dominância técnica clara mas odds ainda não refletem totalmente
+    
+    CRITÉRIOS DE SITUAÇÃO:
+    - Qualquer resultado no 1º set (equilibrado ou perdido) 
+    - 2º set início/meio (prioridade 3-4)
+    - Odds: 1.60-1.90 (favorito técnico subvalorizado)
+    
+    CRITÉRIOS TÉCNICOS DE SUPREMACIA:
+    - 1º Serviço ≥ 70% (dominância no saque)
+    - Aces ≥ 5 (poder de finalização)
+    - Service Games Won ≥ 85% (segurança no saque)
+    - Return Points Won ≥ 45% (pressão no retorno)
+    - Total Points Won ≥ 60% (controle geral)
+    - Winners/Errors Ratio ≥ 1.5 (eficiência ofensiva)
+    """
+    
+    print(f"      🏆 Testando SUPREMACIA TÉCNICA...")
+    
+    # 1. CRITÉRIOS ESPECÍFICOS DA SUPREMACIA TÉCNICA
+    CRITERIOS = {
+        # DOMINÂNCIA NO SAQUE
+        'FIRST_SERVE_MINIMO': 70,       # ≥ 70% 1º serviço
+        'ACES_MINIMO': 5,               # ≥ 5 aces
+        'SERVICE_GAMES_MINIMO': 85,     # ≥ 85% service games won
+        
+        # PRESSÃO NO RETORNO  
+        'RETURN_POINTS_MINIMO': 45,     # ≥ 45% return points won
+        'BREAK_POINTS_CREATED_MINIMO': 8, # ≥ 8 break points criados
+        
+        # CONTROLE GERAL
+        'TOTAL_POINTS_MINIMO': 60,      # ≥ 60% total points won
+        'WINNERS_ERRORS_RATIO_MINIMO': 1.5, # ≥ 1.5 winners/errors ratio
+        
+        # TIMING E ODDS
+        'PRIORIDADE_MINIMA': 3,         # Prioridade 3-4 (mais flexível)
+        'PRIORIDADE_MAXIMA': 4,         # Prioridade 3-4 (mais flexível)
+        'ODDS_MIN': 1.60,               # Favorito técnico
+        'ODDS_MAX': 1.90,               # Ainda com valor
+        'NOME': 'SUPREMACIA_TECNICA'
+    }
+    
+    # 2. VALIDAÇÃO DE TIMING (mais flexível que virada mental)
+    prioridade_partida = partida.get('prioridade', 0)
+    timing_aprovado = CRITERIOS['PRIORIDADE_MINIMA'] <= prioridade_partida <= CRITERIOS['PRIORIDADE_MAXIMA']
+    
+    print(f"         ⏰ Timing: Prioridade {prioridade_partida} {'✅' if timing_aprovado else '❌'} ({CRITERIOS['PRIORIDADE_MINIMA']}-{CRITERIOS['PRIORIDADE_MAXIMA']})")
+    
+    if not timing_aprovado:
+        print(f"         ❌ SUPREMACIA TÉCNICA rejeitada - timing inadequado")
+        return None
+    
+    # 3. IDENTIFICAR JOGADOR COM SUPREMACIA TÉCNICA
+    supremacia_casa = _avaliar_supremacia_tecnica(dados_casa, CRITERIOS)
+    supremacia_visitante = _avaliar_supremacia_tecnica(dados_visitante, CRITERIOS)
+    
+    if supremacia_casa and supremacia_visitante:
+        print(f"         ❌ SUPREMACIA TÉCNICA rejeitada - ambos jogadores dominantes")
+        return None
+    elif supremacia_casa:
+        dados_jogador = dados_casa
+        nome_jogador = jogador_casa
+        oponente = jogador_visitante
+        tipo_jogador = 'HOME'
+    elif supremacia_visitante:
+        dados_jogador = dados_visitante
+        nome_jogador = jogador_visitante
+        oponente = jogador_casa
+        tipo_jogador = 'AWAY'
+    else:
+        print(f"         ❌ SUPREMACIA TÉCNICA rejeitada - nenhum jogador demonstra supremacia")
+        return None
+    
+    print(f"         🎯 SUPREMACIA DETECTADA: {nome_jogador} (tipo: {tipo_jogador})")
+    
+    # 4. VALIDAÇÃO DE ODDS
+    odds_atuais = buscar_odds_partida_atual(event_id)
+    odds_jogador = odds_atuais['casa'] if tipo_jogador == 'HOME' else odds_atuais['visitante']
+    
+    if odds_jogador != 'N/A':
+        try:
+            odds_float = float(odds_jogador)
+            odds_aprovado = CRITERIOS['ODDS_MIN'] <= odds_float <= CRITERIOS['ODDS_MAX']
+            
+            print(f"         💰 Odds {nome_jogador}: {odds_float:.2f} {'✅' if odds_aprovado else '❌'} ({CRITERIOS['ODDS_MIN']}-{CRITERIOS['ODDS_MAX']})")
+            
+            if not odds_aprovado:
+                print(f"         ❌ SUPREMACIA TÉCNICA rejeitada - odds fora da faixa")
+                return None
+        except:
+            print(f"         ❌ SUPREMACIA TÉCNICA rejeitada - odds inválidas")
+            return None
+    else:
+        print(f"         ❌ SUPREMACIA TÉCNICA rejeitada - odds não disponíveis")
+        return None
+    
+    # 5. APROVAÇÃO FINAL
+    print(f"")
+    print(f"         ✅ SUPREMACIA TÉCNICA APROVADA!")
+    print(f"         🏆 {nome_jogador} demonstra supremacia técnica com valor nas odds!")
+    
+    # Extrair estatísticas para o retorno
+    first_serve = float(dados_jogador.get('first_serve_percentage', 0))
+    aces = int(dados_jogador.get('aces', 0))
+    total_points = float(dados_jogador.get('total_points_won', 0))
+    
+    return {
+        'partida_id': event_id,
+        'liga': partida['liga'],
+        'jogador': nome_jogador,
+        'oponente': oponente,
+        'placar': partida.get('placar', ''),
+        'fase_timing': partida['fase'],
+        'prioridade_timing': partida['prioridade'],
+        'tipo': tipo_jogador,
+        'first_serve_pct': first_serve,
+        'aces': aces,
+        'total_points_won': total_points,
+        'odds_atual': odds_jogador,
+        'estrategia': 'SUPREMACIA_TECNICA',
+        'justificativa': f"Supremacia técnica clara: {first_serve}% 1º serviço, {aces} aces, {total_points}% pontos totais"
+    }
+
+
+def _avaliar_supremacia_tecnica(dados_jogador, criterios):
+    """
+    Avalia se um jogador demonstra supremacia técnica baseado nos critérios
+    """
+    try:
+        # DOMINÂNCIA NO SAQUE
+        first_serve = float(dados_jogador.get('first_serve_percentage', 0))
+        aces = int(dados_jogador.get('aces', 0))
+        service_games = float(dados_jogador.get('service_games_won_percentage', 0))
+        
+        # PRESSÃO NO RETORNO
+        return_points = float(dados_jogador.get('return_points_won_percentage', 0))
+        break_points_created = int(dados_jogador.get('break_points_opportunities', 0))
+        
+        # CONTROLE GERAL
+        total_points = float(dados_jogador.get('total_points_won_percentage', 0))
+        winners = int(dados_jogador.get('winners', 0))
+        errors = int(dados_jogador.get('unforced_errors', 1))  # Evitar divisão por zero
+        winners_errors_ratio = winners / errors if errors > 0 else 0
+        
+        # VERIFICAÇÕES INDIVIDUAIS
+        saque_dominante = (first_serve >= criterios['FIRST_SERVE_MINIMO'] and 
+                          aces >= criterios['ACES_MINIMO'] and 
+                          service_games >= criterios['SERVICE_GAMES_MINIMO'])
+        
+        retorno_superior = (return_points >= criterios['RETURN_POINTS_MINIMO'] and 
+                           break_points_created >= criterios['BREAK_POINTS_CREATED_MINIMO'])
+        
+        controle_total = (total_points >= criterios['TOTAL_POINTS_MINIMO'] and 
+                         winners_errors_ratio >= criterios['WINNERS_ERRORS_RATIO_MINIMO'])
+        
+        # LOGGING DOS CRITÉRIOS
+        nome_jogador = dados_jogador.get('name', 'Jogador')
+        print(f"         📊 {nome_jogador} - Análise Supremacia:")
+        print(f"         🎾 Saque: {first_serve}%/{aces}aces/{service_games}% {'✅' if saque_dominante else '❌'}")
+        print(f"         🎯 Retorno: {return_points}%/{break_points_created}bp {'✅' if retorno_superior else '❌'}")
+        print(f"         💪 Controle: {total_points}%/{winners_errors_ratio:.1f}ratio {'✅' if controle_total else '❌'}")
+        
+        # SUPREMACIA = TODOS OS 3 CRITÉRIOS
+        supremacia = saque_dominante and retorno_superior and controle_total
+        
+        print(f"         🏆 Supremacia: {'✅ DETECTADA' if supremacia else '❌ NÃO DETECTADA'}")
+        
+        return supremacia
+        
+    except Exception as e:
+        print(f"         ⚠️ Erro ao avaliar supremacia técnica: {e}")
+        return False
+
 def _identificar_virada_em_andamento(placar):
     """
     🎯 NOVO CRITÉRIO: Identifica virada mental em andamento
@@ -667,17 +845,25 @@ def _esta_liderando_terceiro_set(placar, jogador_virada):
 def analisar_ev_partidas():
     """Analisa EV das partidas com estratégia VIRADA MENTAL."""
     
-    print("🎾 SELEÇÃO FINAL - ESTRATÉGIA VIRADA MENTAL")
+    print("🎾 SELEÇÃO FINAL - ESTRATÉGIAS DUPLAS")
     print("=" * 70)
-    print("🧠 Nova estratégia focada em comebacks mentais implementada")
-    print("🚀 NOVOS FILTROS DE DOMINÂNCIA NO RETORNO ATIVADOS")
+    print("🧠 VIRADA MENTAL: Comebacks dramáticos em tempo real")
+    print("🏆 SUPREMACIA TÉCNICA: Dominância técnica com valor nas odds")
+    print("🚀 FILTROS DE DOMINÂNCIA NO RETORNO ATIVADOS")
     
     print("🔴 FILTRO DE TIMING ULTRA RIGOROSO ATIVADO")
     print("============================================================")
-    print("⏰ TIMING ULTRA RIGOROSO: PRIORIDADE = 4 (2º SET MEIO/FINAL)")
-    print("🎯 Apenas partidas com prioridade exatamente 4 serão analisadas")
+    print("🎯 VIRADA MENTAL:")
+    print("   • Timing: Prioridade = 4 (2º set meio/final)")
+    print("   • Critério: Perdeu 1º set + dominando 2º set por 1+ games")
+    print("   • Odds: 1.70-2.20")
     print("")
-    print("🚀 CRITÉRIOS DE DOMINÂNCIA NO RETORNO:")
+    print("🏆 SUPREMACIA TÉCNICA (NOVA):")
+    print("   • Timing: Prioridade 3-4 (mais flexível)")
+    print("   • Critério: Dominância técnica clara em saque/retorno/controle")
+    print("   • Odds: 1.60-1.90 (favoritos com valor)")
+    print("")
+    print("🚀 CRITÉRIOS DE DOMINÂNCIA NO RETORNO (AMBAS):")
     print("   • Games de Retorno ≥ 35% (quebrando o adversário)")
     print("   • Break Defense ≤ 60% (adversário vulnerável)")
     print("   • Controle de Pontos ≥ 58% (dominando a partida)")
@@ -767,20 +953,45 @@ def analisar_ev_partidas():
             oportunidades_partida.append(resultado_virada)
             print(f"      🎯 VIRADA MENTAL encontrada para {resultado_virada['jogador']}")
         
+        # 🏆 ESTRATÉGIA 2: SUPREMACIA TÉCNICA (NOVA)
+        if not resultado_virada:  # Só testa se virada mental não foi aprovada
+            resultado_supremacia = testar_estrategia_supremacia_tecnica(
+                partida, dados_casa, dados_visitante, event_id, jogador_casa, jogador_visitante
+            )
+            
+            if resultado_supremacia:
+                oportunidades_partida.append(resultado_supremacia)
+                print(f"      🏆 SUPREMACIA TÉCNICA encontrada para {resultado_supremacia['jogador']}")
+        
         # Adicionar oportunidades encontradas à lista final
         if oportunidades_partida:
             oportunidades_finais.extend(oportunidades_partida)
-            print(f"   ✅ {len(oportunidades_partida)} oportunidade(s) encontrada(s) nesta partida")
+            estrategia_usada = oportunidades_partida[0]['estrategia']
+            print(f"   ✅ {len(oportunidades_partida)} oportunidade(s) encontrada(s) - {estrategia_usada}")
         else:
             print(f"   ❌ Nenhuma estratégia aprovada para esta partida")
             
     
-    # Resumo final
+    # Resumo final com estatísticas por estratégia
     print("\n" + "=" * 80)
     print(f"🎯 RESULTADO FINAL: {len(oportunidades_finais)} oportunidades encontradas")
+    print("=" * 80)
     
-    for oportunidade in oportunidades_finais:
-        print(f"✅ {oportunidade['estrategia']}: {oportunidade['jogador']} vs {oportunidade['oponente']} (Odds: {oportunidade['odds_atual']})")
+    # Contar por estratégia
+    virada_mental = [op for op in oportunidades_finais if op['estrategia'] == 'VIRADA_MENTAL']
+    supremacia_tecnica = [op for op in oportunidades_finais if op['estrategia'] == 'SUPREMACIA_TECNICA']
+    
+    print(f"🧠 VIRADA MENTAL: {len(virada_mental)} oportunidades")
+    for op in virada_mental:
+        print(f"   ✅ {op['jogador']} vs {op['oponente']} (Odds: {op['odds_atual']}) - {op['justificativa']}")
+    
+    print(f"\n🏆 SUPREMACIA TÉCNICA: {len(supremacia_tecnica)} oportunidades")
+    for op in supremacia_tecnica:
+        print(f"   ✅ {op['jogador']} vs {op['oponente']} (Odds: {op['odds_atual']}) - {op['justificativa']}")
+    
+    if len(oportunidades_finais) == 0:
+        print("❌ Nenhuma oportunidade encontrada nas estratégias ativas")
+        print("💡 Sistema ultra-seletivo priorizando qualidade sobre quantidade")
     
     print("=" * 80)
     return oportunidades_finais
