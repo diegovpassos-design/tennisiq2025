@@ -494,7 +494,7 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     🧠 ESTRATÉGIA VIRADA MENTAL - CRITÉRIOS APRIMORADOS
     
     Objetivo: Apostar no jogador que está fazendo virada mental EM TEMPO REAL
-    Critério Principal: Perdeu 1º set + ganhando 2º set por 1+ games de diferença
+    Critério Principal: Perdeu 1º set + empatando ou ganhando 2º set
     Odds: 1.70-2.20 (preferencialmente 1.85-2.05)
     
     Critérios Técnicos Básicos:
@@ -508,6 +508,8 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     Exemplos de aprovação:
     - "3-6,5-2" → Perdeu 1º (3-6), dominando 2º (5-2) = +3 games ✅
     - "2-6,6-1" → Perdeu 1º (2-6), dominando 2º (6-1) = +5 games ✅
+    - "4-6,4-3" → Perdeu 1º (4-6), dominando 2º (4-3) = +1 game ✅
+    - "3-6,2-2" → Perdeu 1º (3-6), empatando 2º (2-2) = empate ✅
     - "4-6,4-3" → Perdeu 1º (4-6), liderando 2º (4-3) = +1 game ✅
     """
     
@@ -519,10 +521,10 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
     
     if not jogador_virada:
         print(f"         ❌ VIRADA MENTAL rejeitada - critério não atendido")
-        print(f"         � Necessário: perdeu 1º set + ganhando 2º set por 1+ games")
+        print(f"         📝 Necessário: perdeu 1º set + empatando ou ganhando 2º set")
         return None
     
-    print(f"         🔄 VIRADA MENTAL detectada: {jogador_virada} (perdeu 1º, dominando 2º set)")
+    print(f"         🔄 VIRADA MENTAL detectada: {jogador_virada} (perdeu 1º, recuperando no 2º set)")
     
     # 2. SELECIONAR DADOS DO JOGADOR DA VIRADA
     if jogador_virada == 'HOME':
@@ -566,42 +568,41 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
         print(f"         ❌ VIRADA MENTAL rejeitada - timing insuficiente")
         return None
     
-    # 7. VALIDAÇÃO DOS CRITÉRIOS TÉCNICOS
+    # 7. VALIDAÇÃO DOS CRITÉRIOS TÉCNICOS - VERSÃO SIMPLIFICADA COM DADOS REAIS
     ms = dados_jogador.get('momentum_score', 0)
     w1s = float(dados_jogador.get('win_1st_serve', 0)) if dados_jogador.get('win_1st_serve') else 0
     df = int(dados_jogador.get('double_faults', 0)) if dados_jogador.get('double_faults') else 0
-    bp_won = 50  # Default 50% - será melhorado com dados reais
     
-    # NOVOS CRITÉRIOS - DOMINÂNCIA NO RETORNO
-    return_games = float(dados_jogador.get('return_games_won', 0)) if dados_jogador.get('return_games_won') else 0
-    break_defense = float(dados_jogador.get('break_points_saved', 100)) if dados_jogador.get('break_points_saved') else 100  # Default 100% se não tiver dados
-    total_points = float(dados_jogador.get('total_points_won', 0)) if dados_jogador.get('total_points_won') else 0
+    # USAR DADOS REAIS DA API B365
+    aces = int(dados_jogador.get('aces', 0))
+    break_conversions = float(dados_jogador.get('break_point_conversions', 0))
+    ranking = int(dados_jogador.get('ranking', 999))
     
-    # Validações individuais - critérios existentes
+    # Validações individuais - critérios básicos
     ms_aprovado = ms >= CRITERIOS['MOMENTUM_SCORE_MINIMO']
     w1s_aprovado = w1s >= CRITERIOS['WIN_1ST_SERVE_MINIMO']
     df_aprovado = df <= CRITERIOS['DOUBLE_FAULTS_MAXIMO']
-    bp_aprovado = bp_won >= CRITERIOS['BREAK_POINTS_MINIMO']
     
-    # Validações individuais - novos critérios de dominância
-    return_aprovado = return_games >= CRITERIOS['RETURN_GAMES_MINIMO']
-    defense_aprovado = break_defense <= CRITERIOS['BREAK_DEFENSE_MAXIMO']  # Adversário vulnerável
-    points_aprovado = total_points >= CRITERIOS['TOTAL_POINTS_MINIMO']
+    # Critérios simplificados de qualidade técnica (baseados na API real)
+    aces_liquidos = aces - df
+    qualidade_saque = aces_liquidos >= 2 and w1s >= 60  # Pelo menos 2 aces líquidos + 60% primeiro saque
+    pressao_break = break_conversions >= 25  # 25%+ conversão break points
+    ranking_decente = ranking <= 500  # Top 500 ranking
     
     print(f"")
     print(f"         📊 Momentum Score: {ms}% {'✅' if ms_aprovado else '❌'} (≥{CRITERIOS['MOMENTUM_SCORE_MINIMO']}%)")
     print(f"         🎾 1º Serviço: {w1s}% {'✅' if w1s_aprovado else '❌'} (≥{CRITERIOS['WIN_1ST_SERVE_MINIMO']}%)")
     print(f"         ⚠️ Double Faults: {df} {'✅' if df_aprovado else '❌'} (≤{CRITERIOS['DOUBLE_FAULTS_MAXIMO']})")
-    print(f"         💪 Break Points: {bp_won}% {'✅' if bp_aprovado else '❌'} (≥{CRITERIOS['BREAK_POINTS_MINIMO']}%)")
     print(f"")
-    print(f"         🚀 DOMINÂNCIA NO RETORNO:")
-    print(f"         🎯 Games Retorno: {return_games}% {'✅' if return_aprovado else '❌'} (≥{CRITERIOS['RETURN_GAMES_MINIMO']}%)")
-    print(f"         🛡️ Break Defense Adv: {break_defense}% {'✅' if defense_aprovado else '❌'} (≤{CRITERIOS['BREAK_DEFENSE_MAXIMO']}%)")
-    print(f"         💪 Controle Pontos: {total_points}% {'✅' if points_aprovado else '❌'} (≥{CRITERIOS['TOTAL_POINTS_MINIMO']}%)")
+    print(f"         🚀 QUALIDADE TÉCNICA (DADOS REAIS):")
+    print(f"         � Aces líquidos: {aces_liquidos} ({aces}A - {df}DF) {'✅' if qualidade_saque else '❌'} (≥3 + 60% 1º saque)")
+    print(f"         � Break conversão: {break_conversions}% {'✅' if pressao_break else '❌'} (≥25%)")
+    print(f"         🏆 Ranking: #{ranking} {'✅' if ranking_decente else '❌'} (≤500)")
     
-    # Verificar se TODOS os critérios foram atendidos (existentes + novos)
-    todos_criterios = (ms_aprovado and w1s_aprovado and df_aprovado and bp_aprovado and 
-                      return_aprovado and defense_aprovado and points_aprovado)
+    # Verificar se critérios básicos + pelo menos 2 critérios técnicos foram atendidos
+    criterios_basicos = ms_aprovado and w1s_aprovado and df_aprovado
+    criterios_tecnicos = sum([qualidade_saque, pressao_break, ranking_decente])
+    todos_criterios = criterios_basicos and criterios_tecnicos >= 2
     
     if not todos_criterios:
         print(f"")
@@ -652,11 +653,13 @@ def testar_estrategia_virada_mental(partida, dados_casa, dados_visitante, event_
         'momentum': ms,
         'win_1st_serve': w1s,
         'double_faults': df,
-        'break_points_won': bp_won,
+        'aces': aces,
+        'break_conversions': break_conversions,
+        'ranking': ranking,
         'odds_atual': odds_jogador,
         'odds_ideal': odds_ideal,
         'estrategia': 'VIRADA_MENTAL',
-        'justificativa': f"Perdeu 1º set, dominando 2º set por 1+ games com {ms}% momentum e {w1s}% 1º serviço"
+        'justificativa': f"Perdeu 1º set, recuperando no 2º set com {ms}% momentum, {aces_liquidos} aces líquidos e {break_conversions}% conversão break"
     }
 
 
@@ -670,10 +673,10 @@ def testar_estrategia_supremacia_tecnica(partida, dados_casa, dados_visitante, e
     CRITÉRIOS DE SITUAÇÃO:
     - Qualquer resultado no 1º set (equilibrado ou perdido) 
     - 2º set início/meio (prioridade 3-4)
-    - Odds: 1.60-1.90 (favorito técnico subvalorizado)
+    - Odds: 1.60-2.00 (favorito técnico subvalorizado)
     
     CRITÉRIOS TÉCNICOS DE SUPREMACIA:
-    - 1º Serviço ≥ 70% (dominância no saque)
+    - 1º Serviço ≥ 60% (dominância no saque)
     - Aces ≥ 5 (poder de finalização)
     - Service Games Won ≥ 85% (segurança no saque)
     - Return Points Won ≥ 45% (pressão no retorno)
@@ -686,7 +689,7 @@ def testar_estrategia_supremacia_tecnica(partida, dados_casa, dados_visitante, e
     # 1. CRITÉRIOS ESPECÍFICOS DA SUPREMACIA TÉCNICA
     CRITERIOS = {
         # DOMINÂNCIA NO SAQUE
-        'FIRST_SERVE_MINIMO': 70,       # ≥ 70% 1º serviço
+        'FIRST_SERVE_MINIMO': 60,       # ≥ 60% 1º serviço
         'ACES_MINIMO': 5,               # ≥ 5 aces
         'SERVICE_GAMES_MINIMO': 85,     # ≥ 85% service games won
         
@@ -702,7 +705,7 @@ def testar_estrategia_supremacia_tecnica(partida, dados_casa, dados_visitante, e
         'PRIORIDADE_MINIMA': 3,         # Prioridade 3-4 (mais flexível)
         'PRIORIDADE_MAXIMA': 4,         # Prioridade 3-4 (mais flexível)
         'ODDS_MIN': 1.60,               # Favorito técnico
-        'ODDS_MAX': 1.90,               # Ainda com valor
+        'ODDS_MAX': 2.00,               # Ainda com valor
         'NOME': 'SUPREMACIA_TECNICA'
     }
     
@@ -833,9 +836,9 @@ def _avaliar_supremacia_tecnica(dados_jogador, criterios):
         # CRITÉRIOS SIMPLIFICADOS:
         criterios_check = {
             'saque_eficiente': saque_liquido >= 5,  # Pelo menos 5 aces líquidos
-            'primeiro_saque': win_1st_serve >= 70,  # 70%+ no 1º saque
+            'primeiro_saque': win_1st_serve >= 60,  # 60%+ no 1º saque
             'break_pressure': break_conversions >= 30,  # 30%+ conversão break
-            'ranking_top': ranking <= 150  # Top 150 ranking
+            'ranking_top': ranking <= 500  # Top 500 ranking
         }
         
         criterios_atendidos = sum(criterios_check.values())
@@ -869,11 +872,12 @@ def _identificar_virada_em_andamento(placar):
     """
     🎯 NOVO CRITÉRIO: Identifica virada mental em andamento
     
-    Critério: Perdeu 1º set + ganhando 2º set por 1+ game de diferença
+    Critério: Perdeu 1º set + empatando ou ganhando 2º set
     Exemplos válidos:
     - "3-6,5-2" (perdeu 1º 3-6, ganhando 2º 5-2 = 3 games diferença) ✅
     - "2-6,6-1" (perdeu 1º 2-6, ganhando 2º 6-1 = 5 games diferença) ✅
     - "4-6,4-3" (perdeu 1º 4-6, ganhando 2º 4-3 = 1 game diferença) ✅
+    - "3-6,2-2" (perdeu 1º 3-6, empatando 2º 2-2 = empate) ✅
     """
     if not placar:
         return None
@@ -899,14 +903,16 @@ def _identificar_virada_em_andamento(placar):
         # Extrair games do 2º set (em andamento)
         home_2, away_2 = map(int, segundo_set.split('-'))
         
-        # CRITÉRIO 1: Casa perdeu 1º set E está ganhando 2º por 1+ game
-        if (home_1 < away_1) and (home_2 - away_2 >= 1):
-            print(f"         🎯 VIRADA HOME: Perdeu 1º ({home_1}-{away_1}), dominando 2º ({home_2}-{away_2}) = +{home_2-away_2} games")
+        # CRITÉRIO 1: Casa perdeu 1º set E está empatando ou ganhando 2º
+        if (home_1 < away_1) and (home_2 - away_2 >= 0):
+            status = "empatando" if home_2 == away_2 else f"dominando (+{home_2-away_2})"
+            print(f"         🎯 VIRADA HOME: Perdeu 1º ({home_1}-{away_1}), {status} 2º ({home_2}-{away_2})")
             return 'HOME'
         
-        # CRITÉRIO 2: Visitante perdeu 1º set E está ganhando 2º por 1+ game  
-        if (away_1 < home_1) and (away_2 - home_2 >= 1):
-            print(f"         🎯 VIRADA AWAY: Perdeu 1º ({away_1}-{home_1}), dominando 2º ({away_2}-{home_2}) = +{away_2-home_2} games")
+        # CRITÉRIO 2: Visitante perdeu 1º set E está empatando ou ganhando 2º  
+        if (away_1 < home_1) and (away_2 - home_2 >= 0):
+            status = "empatando" if away_2 == home_2 else f"dominando (+{away_2-home_2})"
+            print(f"         🎯 VIRADA AWAY: Perdeu 1º ({away_1}-{home_1}), {status} 2º ({away_2}-{home_2})")
             return 'AWAY'
         
         # Debug dos critérios não atendidos
@@ -916,10 +922,10 @@ def _identificar_virada_em_andamento(placar):
         
         if home_1 >= away_1 and away_1 >= home_1:
             print(f"             ❌ Nenhum jogador perdeu o 1º set claramente")
-        elif (home_1 < away_1) and (home_2 - away_2 < 1):
-            print(f"             ❌ HOME perdeu 1º mas não está dominando 2º (+{home_2-away_2} < 1 game)")
-        elif (away_1 < home_1) and (away_2 - home_2 < 1):
-            print(f"             ❌ AWAY perdeu 1º mas não está dominando 2º (+{away_2-home_2} < 1 game)")
+        elif (home_1 < away_1) and (home_2 - away_2 < 0):
+            print(f"             ❌ HOME perdeu 1º mas está perdendo 2º ({home_2-away_2} < 0 games)")
+        elif (away_1 < home_1) and (away_2 - home_2 < 0):
+            print(f"             ❌ AWAY perdeu 1º mas está perdendo 2º ({away_2-home_2} < 0 games)")
         
         return None
         
@@ -1014,7 +1020,7 @@ def analisar_ev_partidas():
     print("🏆 SUPREMACIA TÉCNICA (NOVA):")
     print("   • Timing: Prioridade 3-4 (mais flexível)")
     print("   • Critério: Dominância técnica clara em saque/retorno/controle")
-    print("   • Odds: 1.60-1.90 (favoritos com valor)")
+    print("   • Odds: 1.60-2.00 (favoritos com valor)")
     print("")
     print("🚀 CRITÉRIOS DE DOMINÂNCIA NO RETORNO (AMBAS):")
     print("   • Games de Retorno ≥ 35% (quebrando o adversário)")
