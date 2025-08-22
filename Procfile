@@ -1,2 +1,1 @@
-web: python run_dashboard.py
-worker: python run_bot.py
+web: python run.py

@@ -1,0 +1,408 @@
+"""
+Sistema de dados e rankings para o modelo de probabilidades do TennisQ
+"""
+
+import json
+import requests
+import sqlite3
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class PlayerStats:
+    """Estatísticas de um jogador"""
+    name: str
+    ranking: int = 999  # ATP/WTA ranking
+    elo_rating: float = 1500.0  # Elo geral
+    elo_surface: Dict[str, float] = None  # Elo por superfície
+    recent_form: float = 0.5  # Forma recente (0-1)
+    matches_last_30d: int = 0  # Jogos últimos 30 dias
+    win_rate_surface: Dict[str, float] = None  # Win rate por superfície
+    last_updated: str = ""
+    
+    def __post_init__(self):
+        if self.elo_surface is None:
+            self.elo_surface = {
+                "hard": 1500.0,
+                "clay": 1500.0, 
+                "grass": 1500.0,
+                "indoor": 1500.0
+            }
+        if self.win_rate_surface is None:
+            self.win_rate_surface = {
+                "hard": 0.5,
+                "clay": 0.5,
+                "grass": 0.5, 
+                "indoor": 0.5
+            }
+
+class PlayerDatabase:
+    """Banco de dados de jogadores e estatísticas"""
+    
+    def __init__(self, db_path: str = "storage/database/players.db"):
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.init_database()
+        
+    def init_database(self):
+        """Inicializa tabelas do banco"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Tabela de jogadores
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS players (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT UNIQUE NOT NULL,
+                    ranking INTEGER DEFAULT 999,
+                    elo_rating REAL DEFAULT 1500.0,
+                    elo_hard REAL DEFAULT 1500.0,
+                    elo_clay REAL DEFAULT 1500.0,
+                    elo_grass REAL DEFAULT 1500.0,
+                    elo_indoor REAL DEFAULT 1500.0,
+                    recent_form REAL DEFAULT 0.5,
+                    matches_last_30d INTEGER DEFAULT 0,
+                    winrate_hard REAL DEFAULT 0.5,
+                    winrate_clay REAL DEFAULT 0.5,
+                    winrate_grass REAL DEFAULT 0.5,
+                    winrate_indoor REAL DEFAULT 0.5,
+                    last_updated TEXT
+                )
+            """)
+            
+            # Tabela de head-to-head
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS head_to_head (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player1 TEXT NOT NULL,
+                    player2 TEXT NOT NULL,
+                    player1_wins INTEGER DEFAULT 0,
+                    player2_wins INTEGER DEFAULT 0,
+                    last_match_date TEXT,
+                    surface_breakdown TEXT,  -- JSON com breakdown por superfície
+                    last_updated TEXT
+                )
+            """)
+            
+            # Tabela de resultados recentes
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS recent_matches (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    player_name TEXT NOT NULL,
+                    opponent TEXT,
+                    result TEXT,  -- "W" ou "L"
+                    surface TEXT,
+                    tournament TEXT,
+                    date TEXT,
+                    score TEXT
+                )
+            """)
+            
+            # Índices
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_players_name ON players(name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_h2h_players ON head_to_head(player1, player2)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_recent_player_date ON recent_matches(player_name, date)")
+            
+            conn.commit()
+            logger.info("Banco de dados de jogadores inicializado")
+    
+    def get_or_create_player(self, name: str) -> PlayerStats:
+        """Busca jogador no banco ou cria novo com valores padrão"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("SELECT * FROM players WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            
+            if row:
+                # Converte dados do banco para PlayerStats
+                return PlayerStats(
+                    name=row[1],
+                    ranking=row[2],
+                    elo_rating=row[3],
+                    elo_surface={
+                        "hard": row[4],
+                        "clay": row[5], 
+                        "grass": row[6],
+                        "indoor": row[7]
+                    },
+                    recent_form=row[8],
+                    matches_last_30d=row[9],
+                    win_rate_surface={
+                        "hard": row[10],
+                        "clay": row[11],
+                        "grass": row[12],
+                        "indoor": row[13]
+                    },
+                    last_updated=row[14]
+                )
+            else:
+                # Cria novo jogador com valores padrão
+                new_player = PlayerStats(name=name)
+                self.save_player(new_player)
+                return new_player
+    
+    def save_player(self, player: PlayerStats):
+        """Salva/atualiza jogador no banco"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT OR REPLACE INTO players (
+                    name, ranking, elo_rating, elo_hard, elo_clay, elo_grass, elo_indoor,
+                    recent_form, matches_last_30d, winrate_hard, winrate_clay, 
+                    winrate_grass, winrate_indoor, last_updated
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                player.name, player.ranking, player.elo_rating,
+                player.elo_surface["hard"], player.elo_surface["clay"],
+                player.elo_surface["grass"], player.elo_surface["indoor"],
+                player.recent_form, player.matches_last_30d,
+                player.win_rate_surface["hard"], player.win_rate_surface["clay"],
+                player.win_rate_surface["grass"], player.win_rate_surface["indoor"],
+                datetime.utcnow().isoformat()
+            ))
+            conn.commit()
+    
+    def get_head_to_head(self, player1: str, player2: str) -> Dict:
+        """Busca histórico head-to-head entre dois jogadores"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Tenta ambas as ordens
+            cursor.execute("""
+                SELECT player1_wins, player2_wins, surface_breakdown 
+                FROM head_to_head 
+                WHERE (player1 = ? AND player2 = ?) OR (player1 = ? AND player2 = ?)
+            """, (player1, player2, player2, player1))
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "player1_wins": row[0],
+                    "player2_wins": row[1], 
+                    "surface_breakdown": json.loads(row[2]) if row[2] else {}
+                }
+            else:
+                return {"player1_wins": 0, "player2_wins": 0, "surface_breakdown": {}}
+
+class SophisticatedTennisModel:
+    """Modelo sofisticado de probabilidades para tênis"""
+    
+    def __init__(self, player_db: PlayerDatabase = None):
+        self.player_db = player_db or PlayerDatabase()
+        
+        # Pesos dos fatores (devem somar ~1.0)
+        self.weights = {
+            "ranking": 0.30,      # 30% - Diferença de ranking
+            "elo_surface": 0.25,  # 25% - Elo na superfície específica
+            "recent_form": 0.20,  # 20% - Forma recente
+            "head_to_head": 0.15, # 15% - Histórico direto
+            "fatigue": 0.10       # 10% - Fadiga/jogos recentes
+        }
+    
+    def calculate_probability(self, home_player: str, away_player: str, 
+                            surface: str = "hard", tournament_level: str = "regular") -> float:
+        """
+        Calcula probabilidade do home_player vencer
+        
+        Args:
+            home_player: Nome do jogador 1
+            away_player: Nome do jogador 2  
+            surface: Superfície (hard, clay, grass, indoor)
+            tournament_level: Nível do torneio (grand_slam, masters, regular)
+            
+        Returns:
+            Probabilidade entre 0.05 e 0.95
+        """
+        try:
+            # Busca dados dos jogadores
+            player1 = self.player_db.get_or_create_player(home_player)
+            player2 = self.player_db.get_or_create_player(away_player)
+            
+            # Calcula cada componente
+            ranking_factor = self._calculate_ranking_factor(player1, player2)
+            elo_factor = self._calculate_elo_factor(player1, player2, surface)
+            form_factor = self._calculate_form_factor(player1, player2)
+            h2h_factor = self._calculate_h2h_factor(home_player, away_player, surface)
+            fatigue_factor = self._calculate_fatigue_factor(player1, player2)
+            
+            # Média ponderada
+            probability = (
+                self.weights["ranking"] * ranking_factor +
+                self.weights["elo_surface"] * elo_factor +
+                self.weights["recent_form"] * form_factor +
+                self.weights["head_to_head"] * h2h_factor +
+                self.weights["fatigue"] * fatigue_factor
+            )
+            
+            # Ajuste por nível do torneio
+            if tournament_level == "grand_slam":
+                # Favoritos tendem a ser mais consistentes em Grand Slams
+                probability = 0.5 + (probability - 0.5) * 1.1
+            elif tournament_level == "masters":
+                probability = 0.5 + (probability - 0.5) * 1.05
+            
+            # Limita entre 5% e 95%
+            return max(0.05, min(0.95, probability))
+            
+        except Exception as e:
+            logger.warning(f"Erro no cálculo de probabilidade: {e}")
+            return 0.50  # Default 50% em caso de erro
+    
+    def _calculate_ranking_factor(self, player1: PlayerStats, player2: PlayerStats) -> float:
+        """Calcula fator baseado na diferença de ranking"""
+        # Converte rankings para escala logarítmica (ranking baixo = melhor)
+        rank1_log = max(1, min(500, player1.ranking))
+        rank2_log = max(1, min(500, player2.ranking))
+        
+        # Diferença logarítmica normalizada
+        rank_diff = (rank2_log - rank1_log) / 200.0  # Normaliza diferença
+        
+        # Converte para probabilidade (sigmoide)
+        probability = 1 / (1 + pow(10, -rank_diff))
+        
+        return probability
+    
+    def _calculate_elo_factor(self, player1: PlayerStats, player2: PlayerStats, surface: str) -> float:
+        """Calcula fator baseado no Elo da superfície"""
+        elo1 = player1.elo_surface.get(surface, 1500)
+        elo2 = player2.elo_surface.get(surface, 1500)
+        
+        # Fórmula do Elo esperado
+        expected = 1 / (1 + pow(10, (elo2 - elo1) / 400))
+        
+        return expected
+    
+    def _calculate_form_factor(self, player1: PlayerStats, player2: PlayerStats) -> float:
+        """Calcula fator baseado na forma recente"""
+        form1 = player1.recent_form
+        form2 = player2.recent_form
+        
+        # Normaliza diferença de forma
+        form_diff = (form1 - form2) / 2.0 + 0.5
+        
+        return max(0.1, min(0.9, form_diff))
+    
+    def _calculate_h2h_factor(self, player1: str, player2: str, surface: str) -> float:
+        """Calcula fator baseado no head-to-head"""
+        h2h = self.player_db.get_head_to_head(player1, player2)
+        
+        total_matches = h2h["player1_wins"] + h2h["player2_wins"]
+        
+        if total_matches == 0:
+            return 0.5  # Sem histórico = 50%
+        
+        # Win rate do player1
+        win_rate = h2h["player1_wins"] / total_matches
+        
+        # Reduz impacto se poucos jogos
+        confidence = min(1.0, total_matches / 10.0)  # Máxima confiança com 10+ jogos
+        
+        # Interpola entre 50% (sem confiança) e win_rate real
+        return 0.5 + (win_rate - 0.5) * confidence
+    
+    def _calculate_fatigue_factor(self, player1: PlayerStats, player2: PlayerStats) -> float:
+        """Calcula fator de fadiga baseado em jogos recentes"""
+        # Mais jogos = mais fadiga = menor probabilidade
+        fatigue1 = min(0.2, player1.matches_last_30d / 15.0)  # Max 20% penalidade
+        fatigue2 = min(0.2, player2.matches_last_30d / 15.0)
+        
+        # Player1 menos fatigado = maior probabilidade
+        fatigue_advantage = (fatigue2 - fatigue1) / 0.4 + 0.5
+        
+        return max(0.3, min(0.7, fatigue_advantage))
+    
+    def update_player_stats_from_rankings(self, api_token: str = None):
+        """
+        Atualiza rankings dos jogadores usando APIs externas
+        TODO: Implementar integração com APIs de rankings
+        """
+        # Placeholder para integração futura com:
+        # - ATP/WTA official rankings
+        # - Tennis data APIs  
+        # - Resultados recentes
+        pass
+    
+    def simulate_match_probabilities(self, player1: str, player2: str, surface: str = "hard"):
+        """Simula probabilidades detalhadas para debug"""
+        p1_stats = self.player_db.get_or_create_player(player1)
+        p2_stats = self.player_db.get_or_create_player(player2)
+        
+        factors = {
+            "ranking": self._calculate_ranking_factor(p1_stats, p2_stats),
+            "elo_surface": self._calculate_elo_factor(p1_stats, p2_stats, surface),
+            "recent_form": self._calculate_form_factor(p1_stats, p2_stats),
+            "head_to_head": self._calculate_h2h_factor(player1, player2, surface),
+            "fatigue": self._calculate_fatigue_factor(p1_stats, p2_stats)
+        }
+        
+        final_prob = self.calculate_probability(player1, player2, surface)
+        
+        return {
+            "player1": player1,
+            "player2": player2,
+            "surface": surface,
+            "factors": factors,
+            "weights": self.weights,
+            "final_probability": final_prob,
+            "player1_stats": p1_stats,
+            "player2_stats": p2_stats
+        }
+
+# Função para popular banco com dados básicos
+def populate_initial_data():
+    """Popula banco com alguns jogadores conhecidos para testes"""
+    db = PlayerDatabase()
+    
+    # Alguns jogadores top com dados aproximados
+    top_players = [
+        PlayerStats("Novak Djokovic", ranking=1, elo_rating=2100, 
+                   elo_surface={"hard": 2120, "clay": 2050, "grass": 2100, "indoor": 2130},
+                   recent_form=0.85, win_rate_surface={"hard": 0.87, "clay": 0.82, "grass": 0.85, "indoor": 0.88}),
+        
+        PlayerStats("Carlos Alcaraz", ranking=2, elo_rating=2080,
+                   elo_surface={"hard": 2070, "clay": 2100, "grass": 2050, "indoor": 2060},
+                   recent_form=0.90, win_rate_surface={"hard": 0.84, "clay": 0.89, "grass": 0.80, "indoor": 0.83}),
+        
+        PlayerStats("Daniil Medvedev", ranking=3, elo_rating=2050,
+                   elo_surface={"hard": 2090, "clay": 1980, "grass": 2020, "indoor": 2100},
+                   recent_form=0.75, win_rate_surface={"hard": 0.88, "clay": 0.65, "grass": 0.78, "indoor": 0.90}),
+        
+        PlayerStats("Jannik Sinner", ranking=4, elo_rating=2030,
+                   elo_surface={"hard": 2040, "clay": 2020, "grass": 2000, "indoor": 2050},
+                   recent_form=0.88, win_rate_surface={"hard": 0.85, "clay": 0.81, "grass": 0.77, "indoor": 0.87}),
+        
+        PlayerStats("Rafael Nadal", ranking=50, elo_rating=1950,  # Ranking baixo por lesões
+                   elo_surface={"hard": 1920, "clay": 2150, "grass": 1880, "indoor": 1900},
+                   recent_form=0.60, win_rate_surface={"hard": 0.78, "clay": 0.94, "grass": 0.70, "indoor": 0.75})
+    ]
+    
+    for player in top_players:
+        db.save_player(player)
+    
+    logger.info("Dados iniciais populados no banco")
+
+if __name__ == "__main__":
+    # Testa o modelo
+    populate_initial_data()
+    
+    model = SophisticatedTennisModel()
+    
+    # Simula alguns matchups
+    matchups = [
+        ("Novak Djokovic", "Carlos Alcaraz", "hard"),
+        ("Rafael Nadal", "Novak Djokovic", "clay"),
+        ("Daniil Medvedev", "Jannik Sinner", "indoor")
+    ]
+    
+    for p1, p2, surface in matchups:
+        result = model.simulate_match_probabilities(p1, p2, surface)
+        print(f"\n{p1} vs {p2} ({surface})")
+        print(f"Probabilidade {p1}: {result['final_probability']:.1%}")
+        print(f"Fatores: {result['factors']}")
