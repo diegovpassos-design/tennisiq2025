@@ -82,6 +82,7 @@ class PreLiveScanner:
             events = data.get("results", [])
             
             cutoff = datetime.utcnow() + timedelta(hours=hours_ahead)
+            now = datetime.utcnow()
             matches = []
             
             for event in events:
@@ -91,24 +92,11 @@ class PreLiveScanner:
                     if not timestamp:
                         continue
                         
-                    # Converte para datetime
-                    if isinstance(timestamp, str):
-                        # Se for string, tenta parsear diferentes formatos
-                        try:
-                            # Tenta ISO format primeiro
-                            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                        except:
-                            try:
-                                # Tenta como timestamp unix em string
-                                dt = datetime.utcfromtimestamp(int(timestamp))
-                            except:
-                                continue
-                    else:
-                        # Se for timestamp unix
-                        dt = datetime.utcfromtimestamp(int(timestamp))
+                    # Converte para datetime - simplifica para sempre usar unix timestamp
+                    dt = datetime.utcfromtimestamp(int(timestamp))
                     
-                    # Verifica se o evento está na janela de tempo
-                    if dt <= cutoff:
+                    # Verifica se o evento está na janela de tempo (futuro e dentro de 72h)
+                    if dt >= now and dt <= cutoff:
                         # Extrai nomes dos times
                         home_name = ""
                         away_name = ""
