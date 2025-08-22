@@ -19,7 +19,8 @@ class RealDataProvider:
         self.api_token = api_token
         self.api_base = api_base
         self.session = requests.Session()
-        self.rate_limit_delay = 1  # 1 segundo entre requests
+        self.rate_limit_delay = 2  # Aumentado para 2 segundos entre requests
+        logger.info(f"RealDataProvider inicializado com base: {api_base}")
         
     def _make_request(self, endpoint: str, params: Dict = None) -> Optional[Dict]:
         """Faz request para a API com rate limiting"""
@@ -43,20 +44,41 @@ class RealDataProvider:
             return None
     
     def search_player_id(self, player_name: str) -> Optional[str]:
-        """Busca ID do jogador pelo nome"""
+        """Busca ID do jogador pelo nome usando eventos de tênis"""
         try:
-            # Endpoint para buscar jogador
-            data = self._make_request("/v2/tennis/search", {"query": player_name})
+            # Busca em eventos de tênis (sport_id=13)
+            endpoints_to_try = [
+                "/v1/events/upcoming",
+                "/v1/events/inplay"
+            ]
             
-            if data and "results" in data:
-                players = data["results"]
-                for player in players:
-                    if player.get("name", "").lower() == player_name.lower():
-                        return player.get("id")
-                        
-                # Se não encontrou match exato, pega o primeiro resultado
-                if players:
-                    return players[0].get("id")
+            for endpoint in endpoints_to_try:
+                logger.debug(f"Buscando jogador {player_name} em {endpoint}")
+                data = self._make_request(endpoint, {"sport_id": 13})
+                
+                if data and data.get('success') == 1:
+                    events = data.get('results', [])
+                    
+                    # Procura o jogador nos eventos
+                    for event in events:
+                        if isinstance(event, dict):
+                            # Verifica home team
+                            home = event.get('home', {})
+                            if isinstance(home, dict):
+                                home_name = home.get('name', '')
+                                if home_name.lower() == player_name.lower():
+                                    return home.get('id')
+                            
+                            # Verifica away team  
+                            away = event.get('away', {})
+                            if isinstance(away, dict):
+                                away_name = away.get('name', '')
+                                if away_name.lower() == player_name.lower():
+                                    return away.get('id')
+                
+                # Se encontrou dados válidos, para de tentar outros endpoints
+                if data and data.get('success') == 1:
+                    break
                     
             return None
             
@@ -64,15 +86,69 @@ class RealDataProvider:
             logger.warning(f"Error searching player {player_name}: {e}")
             return None
     
+    def _search_in_rankings(self, player_name: str) -> Optional[str]:
+        """Busca jogador nos rankings ATP/WTA como fallback"""
+        try:
+            # Busca no ATP
+            atp_rankings = self.get_atp_rankings()
+            for player in atp_rankings:
+                if isinstance(player, dict):
+                    name = player.get("name", player.get("player_name", ""))
+                    if name and name.lower() == player_name.lower():
+                        return player.get("id", player.get("player_id"))
+            
+            # Busca no WTA
+            wta_rankings = self.get_wta_rankings()
+            for player in wta_rankings:
+                if isinstance(player, dict):
+                    name = player.get("name", player.get("player_name", ""))
+                    if name and name.lower() == player_name.lower():
+                        return player.get("id", player.get("player_id"))
+                        
+            return None
+        except Exception as e:
+            logger.debug(f"Error searching in rankings for {player_name}: {e}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error searching player {player_name}: {e}")
+            return None
+    
     def get_atp_rankings(self) -> List[Dict]:
-        """Busca rankings ATP atuais"""
-        data = self._make_request("/v2/tennis/rankings/ATP")
-        return data.get("results", []) if data else []
+        """Busca rankings ATP usando eventos atuais de tênis"""
+        try:
+            # Usa eventos de tênis para extrair jogadores ranqueados
+            data = self._make_request("/v1/events/upcoming", {"sport_id": 13})
+            
+            if data and data.get('success') == 1:
+                events = data.get('results', [])
+                players = []
+                
+                for event in events:
+                    if isinstance(event, dict):
+                        # Extrai jogadores dos eventos
+                        for side in ['home', 'away']:
+                            team = event.get(side, {})
+                            if isinstance(team, dict) and team.get('name'):
+                                player = {
+                                    'id': team.get('id'),
+                                    'name': team.get('name'),
+                                    'league': event.get('league', {}).get('name', '')
+                                }
+                                players.append(player)
+                
+                return players[:100]  # Retorna até 100 jogadores
+            
+            return []
+        except Exception as e:
+            logger.debug(f"Error getting ATP rankings: {e}")
+            return []
     
     def get_wta_rankings(self) -> List[Dict]:
-        """Busca rankings WTA atuais"""
-        data = self._make_request("/v2/tennis/rankings/WTA")
-        return data.get("results", []) if data else []
+        """Busca rankings WTA usando eventos atuais de tênis"""
+        # Por enquanto usa a mesma lógica do ATP
+        # Idealmente filtaria por ligas femininas
+        return self.get_atp_rankings()
     
     def get_player_stats(self, player_id: str) -> Optional[Dict]:
         """Busca estatísticas detalhadas do jogador"""

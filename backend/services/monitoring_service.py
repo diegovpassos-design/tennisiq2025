@@ -80,8 +80,8 @@ class LineMonitoringService:
                     saved_count = self.db.save_opportunities(opportunities)
                     logger.info(f"Salvas {saved_count} novas oportunidades")
                     
-                    # Envia notificação das melhores
-                    self._notify_best_opportunities(opportunities[:5])
+                    # Envia notificação de TODAS as oportunidades
+                    self._notify_best_opportunities(opportunities)
                 
                 # Aguarda 3 horas antes do próximo scan completo
                 self._sleep_with_interrupt(3 * 3600)  # 3 horas

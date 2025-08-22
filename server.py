@@ -247,7 +247,7 @@ def api_live_scan():
             "events": []
         }
         
-        for event in events[:10]:  # Limitar a 10 para não sobrecarregar
+        for event in events:  # Analisar TODOS os eventos
             try:
                 probability = scanner.calculate_model_probability(event)
                 scan_results["events"].append({
@@ -435,8 +435,8 @@ def force_scan():
             saved_count = monitoring_service.db.save_opportunities(opportunities)
             logger.info(f"Salvas {saved_count} novas oportunidades")
             
-            # Força envio para Telegram
-            monitoring_service._notify_best_opportunities(opportunities[:5])
+            # Força envio para Telegram de TODAS as oportunidades
+            monitoring_service._notify_best_opportunities(opportunities)
             
             return jsonify({
                 "success": True,
