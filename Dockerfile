@@ -18,4 +18,4 @@ RUN mkdir -p storage/logs/system storage/database storage/exports
 EXPOSE $PORT
 
 # Comando de inicialização
-CMD ["python", "run.py"]
+CMD ["python", "server.py"]
