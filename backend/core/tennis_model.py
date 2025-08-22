@@ -142,8 +142,45 @@ class PlayerDatabase:
                     last_updated=row[14]
                 )
             else:
-                # Cria novo jogador com valores padrão
-                new_player = PlayerStats(name=name)
+                # Cria novo jogador com valores simulados mais realísticos
+                import random
+                import hashlib
+                
+                # Usa hash do nome para gerar valores consistentes mas variados
+                name_hash = int(hashlib.md5(name.encode()).hexdigest()[:8], 16)
+                random.seed(name_hash)
+                
+                # Simula ranking realístico (top 10, top 50, top 100, etc.)
+                rank_tier = random.choices(
+                    [random.randint(1, 10), random.randint(11, 50), random.randint(51, 150), 
+                     random.randint(151, 300), random.randint(301, 800)],
+                    weights=[5, 15, 30, 35, 15]  # Distribuição realística
+                )[0]
+                
+                # Elo baseado no ranking (top players = elo alto)
+                base_elo = 1800 - (rank_tier - 1) * 0.8  # Top 1 = ~1800, Rank 500 = ~1400
+                elo_variation = random.uniform(-50, 50)
+                
+                new_player = PlayerStats(
+                    name=name,
+                    ranking=rank_tier,
+                    elo_rating=base_elo + elo_variation,
+                    elo_surface={
+                        "hard": base_elo + elo_variation + random.uniform(-30, 30),
+                        "clay": base_elo + elo_variation + random.uniform(-30, 30),
+                        "grass": base_elo + elo_variation + random.uniform(-30, 30),
+                        "indoor": base_elo + elo_variation + random.uniform(-30, 30)
+                    },
+                    recent_form=random.uniform(0.3, 0.8),  # Forma entre 30% e 80%
+                    matches_last_30d=random.randint(2, 12),  # Entre 2 e 12 jogos por mês
+                    win_rate_surface={
+                        "hard": random.uniform(0.4, 0.7),
+                        "clay": random.uniform(0.4, 0.7),
+                        "grass": random.uniform(0.4, 0.7),
+                        "indoor": random.uniform(0.4, 0.7)
+                    }
+                )
+                
                 self.save_player(new_player)
                 return new_player
     
