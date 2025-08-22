@@ -244,7 +244,7 @@ def api_live_scan():
         
         for event in events[:10]:  # Limitar a 10 para não sobrecarregar
             try:
-                probability = scanner.calculate_probability(event)
+                probability = scanner.calculate_model_probability(event)
                 scan_results["events"].append({
                     "id": event.event_id,
                     "home": event.home,
