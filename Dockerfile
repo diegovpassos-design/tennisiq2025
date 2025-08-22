@@ -14,8 +14,5 @@ COPY . .
 # Criar diretórios necessários
 RUN mkdir -p storage/logs/system storage/database storage/exports
 
-# Expor porta
-EXPOSE $PORT
-
 # Comando de inicialização
 CMD ["python", "server.py"]
