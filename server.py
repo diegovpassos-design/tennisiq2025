@@ -511,6 +511,36 @@ def clean_test_data():
         logger.error(f"Erro ao limpar dados de teste: {e}")
         return jsonify({"error": f"Erro ao limpar dados de teste: {str(e)}"}), 500
 
+@app.route('/api/debug-events')
+def debug_events():
+    """Debug: mostra todas as partidas encontradas na API"""
+    if not monitoring_service:
+        return jsonify({"error": "Serviço de monitoramento não inicializado"}), 500
+    
+    try:
+        # Buscar eventos diretamente
+        events = monitoring_service.scanner.get_upcoming_events(hours_ahead=72)
+        
+        events_info = []
+        for event in events[:20]:  # Primeiros 20 eventos
+            events_info.append({
+                "event_id": event.event_id,
+                "match": f"{event.home} vs {event.away}",
+                "league": event.league,
+                "start_time": event.start_utc.isoformat() + "Z",
+                "surface": event.surface
+            })
+        
+        return jsonify({
+            "total_events_found": len(events),
+            "showing_first": min(20, len(events)),
+            "events": events_info
+        })
+    
+    except Exception as e:
+        logger.error(f"Erro no debug de eventos: {e}")
+        return jsonify({"error": f"Erro no debug: {str(e)}"}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     print(f"🚀 TennisQ iniciando na porta {port}")
