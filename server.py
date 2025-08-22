@@ -52,13 +52,11 @@ def initialize_tennisq():
         os.makedirs(config_dir, exist_ok=True)
         
         config_data = {
-            "api_key": os.environ.get('API_KEY', 'dummy'),
+            "api_key": "dummy-key",  # Não usado, mas mantido para compatibilidade
             "api_base_url": os.environ.get('API_BASE_URL'),
-            "telegram": {
-                "bot_token": os.environ.get('TELEGRAM_BOT_TOKEN'),
-                "chat_id": os.environ.get('TELEGRAM_CHAT_ID'),
-                "channel_id": os.environ.get('TELEGRAM_CHANNEL_ID')
-            }
+            "telegram_token": os.environ.get('TELEGRAM_BOT_TOKEN'),
+            "chat_id": os.environ.get('TELEGRAM_CHAT_ID'),
+            "channel_id": os.environ.get('TELEGRAM_CHANNEL_ID')
         }
         
         with open(config_path, 'w') as f:
