@@ -111,8 +111,9 @@ class PlayerDatabase:
             conn.commit()
             logger.info("Banco de dados de jogadores inicializado")
     
-    def get_or_create_player(self, name: str) -> PlayerStats:
-        """Busca jogador no banco ou cria novo com valores padrão"""
+    def get_or_create_player(self, name: str, use_real_data: bool = False, 
+                           real_data_provider=None) -> PlayerStats:
+        """Busca jogador no banco ou cria novo com valores padrão/reais"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
@@ -120,6 +121,19 @@ class PlayerDatabase:
             row = cursor.fetchone()
             
             if row:
+                # Verifica se dados estão desatualizados (>7 dias)
+                last_updated = row[14]
+                try:
+                    update_date = datetime.fromisoformat(last_updated)
+                    days_old = (datetime.utcnow() - update_date).days
+                    
+                    # Se dados são antigos e temos provedor de dados reais, atualiza
+                    if days_old > 7 and use_real_data and real_data_provider:
+                        logger.info(f"Dados de {name} desatualizados ({days_old} dias). Atualizando...")
+                        return real_data_provider.update_player_with_real_data(name, self)
+                except:
+                    pass  # Se erro na data, usa dados existentes
+                
                 # Converte dados do banco para PlayerStats
                 return PlayerStats(
                     name=row[1],
@@ -142,47 +156,52 @@ class PlayerDatabase:
                     last_updated=row[14]
                 )
             else:
-                # Cria novo jogador com valores simulados mais realísticos
-                import random
-                import hashlib
-                
-                # Usa hash do nome para gerar valores consistentes mas variados
-                name_hash = int(hashlib.md5(name.encode()).hexdigest()[:8], 16)
-                random.seed(name_hash)
-                
-                # Simula ranking realístico (top 10, top 50, top 100, etc.)
-                rank_tier = random.choices(
-                    [random.randint(1, 10), random.randint(11, 50), random.randint(51, 150), 
-                     random.randint(151, 300), random.randint(301, 800)],
-                    weights=[5, 15, 30, 35, 15]  # Distribuição realística
-                )[0]
-                
-                # Elo baseado no ranking (top players = elo alto)
-                base_elo = 1800 - (rank_tier - 1) * 0.8  # Top 1 = ~1800, Rank 500 = ~1400
-                elo_variation = random.uniform(-50, 50)
-                
-                new_player = PlayerStats(
-                    name=name,
-                    ranking=rank_tier,
-                    elo_rating=base_elo + elo_variation,
-                    elo_surface={
-                        "hard": base_elo + elo_variation + random.uniform(-30, 30),
-                        "clay": base_elo + elo_variation + random.uniform(-30, 30),
-                        "grass": base_elo + elo_variation + random.uniform(-30, 30),
-                        "indoor": base_elo + elo_variation + random.uniform(-30, 30)
-                    },
-                    recent_form=random.uniform(0.3, 0.8),  # Forma entre 30% e 80%
-                    matches_last_30d=random.randint(2, 12),  # Entre 2 e 12 jogos por mês
-                    win_rate_surface={
-                        "hard": random.uniform(0.4, 0.7),
-                        "clay": random.uniform(0.4, 0.7),
-                        "grass": random.uniform(0.4, 0.7),
-                        "indoor": random.uniform(0.4, 0.7)
-                    }
-                )
-                
-                self.save_player(new_player)
-                return new_player
+                # Jogador novo - busca dados reais se disponível
+                if use_real_data and real_data_provider:
+                    logger.info(f"Novo jogador {name} - buscando dados reais")
+                    return real_data_provider.update_player_with_real_data(name, self)
+                else:
+                    # Cria novo jogador com valores simulados mais realísticos
+                    import random
+                    import hashlib
+                    
+                    # Usa hash do nome para gerar valores consistentes mas variados
+                    name_hash = int(hashlib.md5(name.encode()).hexdigest()[:8], 16)
+                    random.seed(name_hash)
+                    
+                    # Simula ranking realístico (top 10, top 50, top 100, etc.)
+                    rank_tier = random.choices(
+                        [random.randint(1, 10), random.randint(11, 50), random.randint(51, 150), 
+                         random.randint(151, 300), random.randint(301, 800)],
+                        weights=[5, 15, 30, 35, 15]  # Distribuição realística
+                    )[0]
+                    
+                    # Elo baseado no ranking (top players = elo alto)
+                    base_elo = 1800 - (rank_tier - 1) * 0.8  # Top 1 = ~1800, Rank 500 = ~1400
+                    elo_variation = random.uniform(-50, 50)
+                    
+                    new_player = PlayerStats(
+                        name=name,
+                        ranking=rank_tier,
+                        elo_rating=base_elo + elo_variation,
+                        elo_surface={
+                            "hard": base_elo + elo_variation + random.uniform(-30, 30),
+                            "clay": base_elo + elo_variation + random.uniform(-30, 30),
+                            "grass": base_elo + elo_variation + random.uniform(-30, 30),
+                            "indoor": base_elo + elo_variation + random.uniform(-30, 30)
+                        },
+                        recent_form=random.uniform(0.3, 0.8),  # Forma entre 30% e 80%
+                        matches_last_30d=random.randint(2, 12),  # Entre 2 e 12 jogos por mês
+                        win_rate_surface={
+                            "hard": random.uniform(0.4, 0.7),
+                            "clay": random.uniform(0.4, 0.7),
+                            "grass": random.uniform(0.4, 0.7),
+                            "indoor": random.uniform(0.4, 0.7)
+                        }
+                    )
+                    
+                    self.save_player(new_player)
+                    return new_player
     
     def save_player(self, player: PlayerStats):
         """Salva/atualiza jogador no banco"""
@@ -231,8 +250,21 @@ class PlayerDatabase:
 class SophisticatedTennisModel:
     """Modelo sofisticado de probabilidades para tênis"""
     
-    def __init__(self, player_db: PlayerDatabase = None):
+    def __init__(self, player_db: PlayerDatabase = None, use_real_data: bool = True, 
+                 api_token: str = None, api_base: str = None):
         self.player_db = player_db or PlayerDatabase()
+        self.use_real_data = use_real_data
+        self.real_data_provider = None
+        
+        # Inicializa provedor de dados reais se disponível
+        if use_real_data and api_token and api_base:
+            try:
+                from .real_data_provider import RealDataProvider
+                self.real_data_provider = RealDataProvider(api_token, api_base)
+                logger.info("RealDataProvider inicializado - usando dados reais da API")
+            except Exception as e:
+                logger.warning(f"Erro ao inicializar RealDataProvider: {e}")
+                self.use_real_data = False
         
         # Pesos dos fatores (devem somar ~1.0)
         self.weights = {
@@ -258,9 +290,17 @@ class SophisticatedTennisModel:
             Probabilidade entre 0.05 e 0.95
         """
         try:
-            # Busca dados dos jogadores
-            player1 = self.player_db.get_or_create_player(home_player)
-            player2 = self.player_db.get_or_create_player(away_player)
+            # Busca dados dos jogadores (com dados reais se disponível)
+            player1 = self.player_db.get_or_create_player(
+                home_player, 
+                use_real_data=self.use_real_data,
+                real_data_provider=self.real_data_provider
+            )
+            player2 = self.player_db.get_or_create_player(
+                away_player,
+                use_real_data=self.use_real_data, 
+                real_data_provider=self.real_data_provider
+            )
             
             # Calcula cada componente
             ranking_factor = self._calculate_ranking_factor(player1, player2)

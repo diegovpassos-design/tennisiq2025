@@ -57,7 +57,11 @@ class PreLiveScanner:
         self.sport_id_tennis = 13  # ID do tênis na b365api (confirmado pelo teste)
         
         # Inicializa modelo sofisticado
-        self.tennis_model = SophisticatedTennisModel()
+        self.tennis_model = SophisticatedTennisModel(
+            use_real_data=True,
+            api_token=api_token,
+            api_base=api_base
+        )
         
         logger.info("PreLiveScanner inicializado com modelo sofisticado")
         
