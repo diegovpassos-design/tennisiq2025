@@ -15,4 +15,4 @@ COPY . .
 EXPOSE $PORT
 
 # Comando de inicialização
-CMD python server.py
+CMD ["python", "server.py"]
