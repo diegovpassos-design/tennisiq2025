@@ -70,9 +70,9 @@ class LineMonitoringService:
                 # Escaneia oportunidades
                 opportunities = self.scanner.scan_opportunities(
                     hours_ahead=72,
-                    min_ev=0.015,  # EV mínimo de 1.5%
-                    odd_min=1.70,
-                    odd_max=2.30
+                    min_ev=0.005,  # EV mínimo de 0.5% (mais sensível)
+                    odd_min=1.80,  # Range ajustado conforme solicitado
+                    odd_max=2.40   # Range ajustado conforme solicitado
                 )
                 
                 if opportunities:

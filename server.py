@@ -3,7 +3,12 @@ import os
 import sys
 import threading
 import time
+import logging
 from datetime import datetime
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Adicionar diretório backend ao path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
@@ -404,6 +409,51 @@ def dashboard():
     </body>
     </html>
     """
+
+@app.route('/api/force-scan')
+def force_scan():
+    """Força um scan imediato para testar detecção de oportunidades"""
+    if not monitoring_service:
+        return jsonify({"error": "Serviço de monitoramento não inicializado"}), 500
+    
+    try:
+        logger.info("Iniciando scan forçado...")
+        
+        # Limpeza de oportunidades enviadas expiradas
+        monitoring_service.db.cleanup_expired_sent_opportunities()
+        
+        # Escaneia oportunidades com parâmetros mais sensíveis
+        opportunities = monitoring_service.scanner.scan_opportunities(
+            hours_ahead=72,
+            min_ev=0.001,  # EV muito baixo para teste
+            odd_min=1.80,  # Range ajustado conforme solicitado
+            odd_max=2.40   # Range ajustado conforme solicitado
+        )
+        
+        if opportunities:
+            # Salva no banco
+            saved_count = monitoring_service.db.save_opportunities(opportunities)
+            logger.info(f"Salvas {saved_count} novas oportunidades")
+            
+            # Força envio para Telegram
+            monitoring_service._notify_best_opportunities(opportunities[:5])
+            
+            return jsonify({
+                "success": True,
+                "opportunities_found": len(opportunities),
+                "opportunities_saved": saved_count,
+                "message": f"Scan forçado concluído! {len(opportunities)} oportunidades encontradas, {saved_count} salvas."
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "opportunities_found": 0,
+                "message": "Scan forçado concluído, nenhuma oportunidade encontrada."
+            })
+    
+    except Exception as e:
+        logger.error(f"Erro no scan forçado: {e}")
+        return jsonify({"error": f"Erro no scan forçado: {str(e)}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
