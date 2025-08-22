@@ -155,7 +155,8 @@ def status():
             "API_BASE_URL": "✅" if os.environ.get("API_BASE_URL") else "❌",
             "TELEGRAM_BOT_TOKEN": "✅" if os.environ.get("TELEGRAM_BOT_TOKEN") else "❌", 
             "TELEGRAM_CHAT_ID": "✅" if os.environ.get("TELEGRAM_CHAT_ID") else "❌",
-            "TELEGRAM_CHANNEL_ID": "✅" if os.environ.get("TELEGRAM_CHANNEL_ID") else "❌"
+            "TELEGRAM_CHANNEL_ID": "✅" if os.environ.get("TELEGRAM_CHANNEL_ID") else "❌",
+            "DEBUG_ALL_VARS": {k: v for k, v in os.environ.items() if k.startswith('TELEGRAM')}
         }
     })
 
