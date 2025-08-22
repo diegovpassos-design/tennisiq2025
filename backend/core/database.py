@@ -314,6 +314,16 @@ class PreLiveDatabase:
             deleted_count = cursor.rowcount
             if deleted_count > 0:
                 logger.info(f"Removidas {deleted_count} oportunidades enviadas expiradas")
+    
+    def reset_sent_opportunities(self):
+        """RESET: Remove todas as oportunidades enviadas para permitir reenvio"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM sent_opportunities")
+            
+            deleted_count = cursor.rowcount
+            logger.info(f"RESET: Removidas {deleted_count} oportunidades da tabela anti-duplicatas")
+            return deleted_count
 
 # Funções utilitárias
 from datetime import timedelta

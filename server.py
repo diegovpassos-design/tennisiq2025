@@ -455,6 +455,28 @@ def force_scan():
         logger.error(f"Erro no scan forçado: {e}")
         return jsonify({"error": f"Erro no scan forçado: {str(e)}"}), 500
 
+@app.route('/api/reset-opportunities')
+def reset_opportunities():
+    """Reset das oportunidades enviadas para permitir reenvio"""
+    if not monitoring_service:
+        return jsonify({"error": "Serviço de monitoramento não inicializado"}), 500
+    
+    try:
+        # Reset da tabela anti-duplicatas
+        deleted_count = monitoring_service.db.reset_sent_opportunities()
+        
+        logger.info(f"Reset realizado: {deleted_count} registros removidos")
+        
+        return jsonify({
+            "success": True,
+            "deleted_records": deleted_count,
+            "message": f"Reset concluído! {deleted_count} registros de oportunidades enviadas foram removidos. Sistema pronto para reenviar oportunidades."
+        })
+    
+    except Exception as e:
+        logger.error(f"Erro no reset: {e}")
+        return jsonify({"error": f"Erro no reset: {str(e)}"}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     print(f"🚀 TennisQ iniciando na porta {port}")

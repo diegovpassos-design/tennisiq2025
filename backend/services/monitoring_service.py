@@ -197,8 +197,11 @@ class LineMonitoringService:
             
             url = f"https://api.telegram.org/bot{self.config['telegram_token']}/sendMessage"
             
+            # Usa o canal em vez do chat privado para oportunidades
+            target_chat = self.config.get("channel_id") or self.config.get("chat_id")
+            
             data = {
-                "chat_id": self.config["chat_id"],
+                "chat_id": target_chat,
                 "text": message,
                 "parse_mode": "Markdown"
             }
@@ -206,7 +209,7 @@ class LineMonitoringService:
             response = requests.post(url, data=data, timeout=10)
             response.raise_for_status()
             
-            logger.info("Notificação enviada via Telegram")
+            logger.info(f"Notificação enviada via Telegram para {target_chat}")
             
         except Exception as e:
             logger.error(f"Erro ao enviar mensagem Telegram: {e}")
