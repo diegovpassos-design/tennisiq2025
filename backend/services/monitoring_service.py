@@ -202,8 +202,7 @@ class LineMonitoringService:
             
             data = {
                 "chat_id": target_chat,
-                "text": message,
-                "parse_mode": "Markdown"
+                "text": message
             }
             
             response = requests.post(url, data=data, timeout=10)
@@ -220,7 +219,7 @@ class LineMonitoringService:
             from datetime import datetime
             
             startup_message = (
-                "🚀 **TENNISQ PRÉ-LIVE INICIADO**\n\n"
+                "🚀 TENNISQ PRÉ-LIVE INICIADO\n\n"
                 f"⏰ Hora: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
                 "🔍 Monitoramento ativo para oportunidades pré-live\n"
                 "⏱️ Ciclo de escaneamento: 3 horas\n"

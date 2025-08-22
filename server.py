@@ -477,6 +477,40 @@ def reset_opportunities():
         logger.error(f"Erro no reset: {e}")
         return jsonify({"error": f"Erro no reset: {str(e)}"}), 500
 
+@app.route('/api/clean-test-data')
+def clean_test_data():
+    """Remove dados de teste do sistema"""
+    if not monitoring_service:
+        return jsonify({"error": "Serviço de monitoramento não inicializado"}), 500
+    
+    try:
+        # Limpar dados de teste no banco
+        with monitoring_service.db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Remover oportunidades de teste
+            cursor.execute("DELETE FROM opportunities WHERE match_name LIKE '%Test Player%'")
+            test_opportunities = cursor.rowcount
+            
+            # Remover movimentos de linha de teste  
+            cursor.execute("DELETE FROM line_movements WHERE event_id LIKE '%test%'")
+            test_movements = cursor.rowcount
+            
+            conn.commit()
+        
+        logger.info(f"Dados de teste removidos: {test_opportunities} oportunidades, {test_movements} movimentos")
+        
+        return jsonify({
+            "success": True,
+            "test_opportunities_removed": test_opportunities,
+            "test_movements_removed": test_movements,
+            "message": f"Dados de teste removidos! {test_opportunities} oportunidades e {test_movements} movimentos de linha de teste foram deletados."
+        })
+    
+    except Exception as e:
+        logger.error(f"Erro ao limpar dados de teste: {e}")
+        return jsonify({"error": f"Erro ao limpar dados de teste: {str(e)}"}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     print(f"🚀 TennisQ iniciando na porta {port}")
