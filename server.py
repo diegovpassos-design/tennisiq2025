@@ -56,7 +56,7 @@ def initialize_tennisq():
             "api_base_url": os.environ.get('API_BASE_URL'),
             "telegram_token": os.environ.get('TELEGRAM_BOT_TOKEN'),
             "chat_id": os.environ.get('TELEGRAM_CHAT_ID'),
-            "channel_id": os.environ.get('TELEGRAM_CHANNEL_ID')
+            "channel_id": os.environ.get('TELEGRAM_CHANEL_ID')  # Note: typo no Railway
         }
         
         with open(config_path, 'w') as f:
@@ -155,7 +155,7 @@ def status():
             "API_BASE_URL": "✅" if os.environ.get("API_BASE_URL") else "❌",
             "TELEGRAM_BOT_TOKEN": "✅" if os.environ.get("TELEGRAM_BOT_TOKEN") else "❌", 
             "TELEGRAM_CHAT_ID": "✅" if os.environ.get("TELEGRAM_CHAT_ID") else "❌",
-            "TELEGRAM_CHANNEL_ID": "✅" if os.environ.get("TELEGRAM_CHANNEL_ID") else "❌",
+            "TELEGRAM_CHANNEL_ID": "✅" if os.environ.get("TELEGRAM_CHANEL_ID") else "❌",
             "DEBUG_ALL_VARS": {k: v for k, v in os.environ.items() if k.startswith('TELEGRAM')}
         }
     })
