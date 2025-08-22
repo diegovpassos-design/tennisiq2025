@@ -39,7 +39,7 @@ def initialize_tennisq():
         
     try:
         # Verificar variáveis de ambiente
-        required_vars = ['API_BASE_URL', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID']
+        required_vars = ['API_KEY', 'API_BASE_URL', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID']
         missing_vars = [var for var in required_vars if not os.environ.get(var)]
         
         if missing_vars:
@@ -52,7 +52,7 @@ def initialize_tennisq():
         os.makedirs(config_dir, exist_ok=True)
         
         config_data = {
-            "api_key": "dummy-key",  # Não usado, mas mantido para compatibilidade
+            "api_key": os.environ.get('API_KEY'),
             "api_base_url": os.environ.get('API_BASE_URL'),
             "telegram_token": os.environ.get('TELEGRAM_BOT_TOKEN'),
             "chat_id": os.environ.get('TELEGRAM_CHAT_ID'),
