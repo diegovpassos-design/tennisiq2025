@@ -195,21 +195,23 @@ def api_matches():
     try:
         # Buscar partidas do database
         db = monitoring_service.db
-        opportunities = db.get_recent_opportunities(limit=50)
+        opportunities = db.get_active_opportunities(min_hours_ahead=0)  # Todas as oportunidades
         
         matches_data = []
         for opp in opportunities:
             matches_data.append({
                 "id": opp.get("id"),
                 "event_id": opp.get("event_id"),
-                "home_team": opp.get("home_team"),
-                "away_team": opp.get("away_team"),
-                "start_time": opp.get("start_time"),
-                "probability": opp.get("probability"),
-                "current_odds": opp.get("current_odds"),
-                "recommended_odds": opp.get("recommended_odds"),
+                "home_team": opp.get("match_name", "").split(" vs ")[0] if " vs " in opp.get("match_name", "") else "N/A",
+                "away_team": opp.get("match_name", "").split(" vs ")[1] if " vs " in opp.get("match_name", "") else "N/A",
+                "start_time": opp.get("start_utc"),
+                "probability": opp.get("p_model"),
+                "current_odds": opp.get("odd"),
+                "recommended_odds": opp.get("odd"),
                 "created_at": opp.get("created_at"),
-                "status": "active" if opp.get("probability", 0) > 0.6 else "low_prob"
+                "status": "active" if opp.get("p_model", 0) > 0.6 else "low_prob",
+                "ev": opp.get("ev"),
+                "confidence": opp.get("confidence")
             })
         
         return jsonify({
@@ -244,16 +246,17 @@ def api_live_scan():
             try:
                 probability = scanner.calculate_probability(event)
                 scan_results["events"].append({
-                    "id": event.get("id"),
-                    "home": event.get("home", {}).get("name", "N/A"),
-                    "away": event.get("away", {}).get("name", "N/A"),
-                    "start_time": event.get("time"),
+                    "id": event.event_id,
+                    "home": event.home,
+                    "away": event.away,
+                    "start_time": event.start_utc.isoformat() if hasattr(event.start_utc, 'isoformat') else str(event.start_utc),
+                    "league": event.league,
                     "probability": round(probability, 3) if probability else 0,
                     "status": "opportunity" if probability and probability > 0.6 else "normal"
                 })
             except Exception as e:
                 scan_results["events"].append({
-                    "id": event.get("id", "unknown"),
+                    "id": getattr(event, 'event_id', 'unknown'),
                     "error": str(e)
                 })
         
