@@ -46,13 +46,34 @@ def initialize_tennisq():
             print(f"⚠️ Variáveis faltando: {missing_vars}")
             return False
             
+        # Criar arquivo de configuração temporário se não existir
+        config_path = "backend/config/config.json"
+        config_dir = os.path.dirname(config_path)
+        os.makedirs(config_dir, exist_ok=True)
+        
+        config_data = {
+            "api_key": os.environ.get('API_KEY', 'dummy'),
+            "api_base_url": os.environ.get('API_BASE_URL'),
+            "telegram": {
+                "bot_token": os.environ.get('TELEGRAM_BOT_TOKEN'),
+                "chat_id": os.environ.get('TELEGRAM_CHAT_ID'),
+                "channel_id": os.environ.get('TELEGRAM_CHANNEL_ID')
+            }
+        }
+        
+        with open(config_path, 'w') as f:
+            import json
+            json.dump(config_data, f, indent=2)
+        
+        print(f"📝 Arquivo de configuração criado: {config_path}")
+        
         # Inicializar database
         print("🔧 Inicializando database...")
         database = PreLiveDatabase()
         
         # Inicializar monitoring service
         print("🔧 Inicializando monitoring service...")
-        monitoring_service = LineMonitoringService()
+        monitoring_service = LineMonitoringService(config_path="backend/config/config.json")
         
         # Enviar notificação de startup
         print("📱 Enviando notificação de startup...")
