@@ -223,9 +223,11 @@ class LineMonitoringService:
                 "🚀 **TENNISQ PRÉ-LIVE INICIADO**\\n\\n"
                 f"⏰ Hora: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\\n"
                 "🔍 Monitoramento ativo para oportunidades pré-live\\n"
-                "📊 EV mínimo: 1.5%\\n"
-                "🎯 Range de odds: 1.70 - 2.30\\n"
-                "⏱️ Ciclo de escaneamento: 3 horas\\n\\n"
+                "📊 EV mínimo: 0.5%\\n"
+                "🎯 Range de odds: 1.80 - 2.40\\n"
+                "⏱️ Ciclo de escaneamento: 3 horas\\n"
+                "🎾 Análise de TODOS os jogos de tênis\\n"
+                "🌐 Dados reais via B365API (sport_id=13)\\n\\n"
                 "💡 Sistema operacional e pronto para detectar oportunidades!"
             )
             
