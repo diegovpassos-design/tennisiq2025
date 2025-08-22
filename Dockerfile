@@ -11,8 +11,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código da aplicação
 COPY . .
 
+# Criar diretórios necessários
+RUN mkdir -p storage/logs/system storage/database storage/exports
+
 # Expor porta
 EXPOSE $PORT
 
 # Comando de inicialização
-CMD ["python", "server.py"]
+CMD ["python", "run.py"]
