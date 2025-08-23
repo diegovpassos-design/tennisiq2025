@@ -19,7 +19,7 @@ class RealDataProvider:
         self.api_token = api_token
         self.api_base = api_base
         self.session = requests.Session()
-        self.rate_limit_delay = 2  # Aumentado para 2 segundos entre requests
+        self.rate_limit_delay = 0.5  # Reduzido para 0.5 segundos entre requests
         logger.info(f"RealDataProvider inicializado com base: {api_base}")
         
     def _make_request(self, endpoint: str, params: Dict = None) -> Optional[Dict]:
@@ -30,8 +30,8 @@ class RealDataProvider:
             if params:
                 default_params.update(params)
                 
-            response = self.session.get(url, params=default_params, timeout=10)
-            time.sleep(self.rate_limit_delay)  # Rate limiting
+            response = self.session.get(url, params=default_params, timeout=5)  # Timeout reduzido
+            time.sleep(self.rate_limit_delay)  # Rate limiting reduzido
             
             if response.status_code == 200:
                 return response.json()

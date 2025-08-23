@@ -300,27 +300,49 @@ class PreLiveScanner:
         events = self.get_upcoming_events(hours_ahead)
         opportunities = []
         
-        for match in events:
+        logger.info(f"🎾 Processando {len(events)} jogos individualmente...")
+        
+        for i, match in enumerate(events, 1):
             try:
+                logger.info(f"📊 [{i}/{len(events)}] Analisando: {match.home} vs {match.away}")
+                
+                # 1. Buscar odds do jogo
+                logger.info(f"  🔍 Buscando odds...")
                 odds_data = self.get_event_odds(match.event_id)
                 if not odds_data:
+                    logger.info(f"  ❌ Odds não encontradas")
                     continue
                 
-                # Probabilidades do mercado (normalizadas)
+                logger.info(f"  💰 Odds: Home {odds_data.home_od:.2f} | Away {odds_data.away_od:.2f}")
+                
+                # 2. Verificar se odds estão na faixa desejada
+                home_in_range = odd_min <= odds_data.home_od <= odd_max
+                away_in_range = odd_min <= odds_data.away_od <= odd_max
+                
+                if not (home_in_range or away_in_range):
+                    logger.info(f"  ⏭️ Odds fora da faixa [{odd_min}-{odd_max}]")
+                    continue
+                
+                # 3. Calcular probabilidades do mercado
+                logger.info(f"  📈 Calculando probabilidades...")
                 p_home_market, p_away_market = self.normalize_probabilities(
                     odds_data.home_od, odds_data.away_od
                 )
                 
-                # Probabilidade do modelo
+                # 4. Calcular probabilidade do modelo (aqui que carrega os jogadores)
+                logger.info(f"  🧠 Calculando probabilidade do modelo...")
                 p_home_model = self.calculate_model_probability(match)
                 p_away_model = 1.0 - p_home_model
                 
-                # Candidatos dentro da faixa de odds
+                logger.info(f"  📊 Probabilidades - Modelo: {p_home_model:.3f} | Mercado: {p_home_market:.3f}")
+                
+                # 5. Verificar oportunidades
                 candidates = []
                 
                 # Verifica lado HOME
-                if odd_min <= odds_data.home_od <= odd_max:
+                if home_in_range:
                     ev_home = self.calculate_ev(odds_data.home_od, p_home_model)
+                    logger.info(f"  🏠 HOME EV: {ev_home:.3f}")
                     if ev_home >= min_ev:
                         candidates.append({
                             "side": "HOME",
@@ -329,10 +351,12 @@ class PreLiveScanner:
                             "p_model": p_home_model,
                             "p_market": p_home_market
                         })
+                        logger.info(f"  ✅ OPORTUNIDADE HOME encontrada! EV: {ev_home:.3f}")
                 
                 # Verifica lado AWAY  
-                if odd_min <= odds_data.away_od <= odd_max:
+                if away_in_range:
                     ev_away = self.calculate_ev(odds_data.away_od, p_away_model)
+                    logger.info(f"  ✈️ AWAY EV: {ev_away:.3f}")
                     if ev_away >= min_ev:
                         candidates.append({
                             "side": "AWAY", 
@@ -341,8 +365,9 @@ class PreLiveScanner:
                             "p_model": p_away_model,
                             "p_market": p_away_market
                         })
+                        logger.info(f"  ✅ OPORTUNIDADE AWAY encontrada! EV: {ev_away:.3f}")
                 
-                # Adiciona oportunidades encontradas
+                # 6. Adicionar oportunidades encontradas
                 for candidate in candidates:
                     confidence = self._calculate_confidence(candidate["ev"], candidate["p_model"])
                     
@@ -358,20 +383,20 @@ class PreLiveScanner:
                         p_market=round(candidate["p_market"], 3),
                         confidence=confidence
                     )
-                    
                     opportunities.append(opportunity)
-                    
-                # Pequena pausa para não sobrecarregar a API
-                time.sleep(0.1)
+                    logger.info(f"  💎 Oportunidade adicionada: {candidate['side']} EV: {candidate['ev']:.3f}")
                 
+                if not candidates:
+                    logger.info(f"  📭 Nenhuma oportunidade encontrada")
+                    
             except Exception as e:
-                logger.warning(f"Erro ao processar match {match.home} vs {match.away}: {e}")
+                logger.error(f"  ❌ Erro processando jogo {match.home} vs {match.away}: {e}")
                 continue
         
         # Ordena por EV decrescente
         opportunities.sort(key=lambda x: x.ev, reverse=True)
         
-        logger.info(f"Encontradas {len(opportunities)} oportunidades")
+        logger.info(f"🎯 SCAN CONCLUÍDO: {len(opportunities)} oportunidades encontradas")
         return opportunities
     
     def _detect_surface(self, league_name: str) -> str:
