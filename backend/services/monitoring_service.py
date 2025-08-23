@@ -38,25 +38,31 @@ class LineMonitoringService:
     def start_service(self):
         """Inicia o serviço de monitoramento"""
         if self.running:
-            logger.warning("Serviço já está rodando")
+            logger.warning("⚠️ LineMonitoringService: Serviço já está rodando")
             return
             
+        logger.info("🔄 LineMonitoringService: Iniciando serviço...")
         self.running = True
         
         # Thread para escanear novas oportunidades
+        logger.info("🧵 LineMonitoringService: Criando thread de scan...")
         self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
         self.scan_thread.start()
+        logger.info(f"✅ LineMonitoringService: Thread de scan iniciada - ID: {self.scan_thread.ident}")
         
         # Thread para monitorar movimento de linha
+        logger.info("🧵 LineMonitoringService: Criando thread de monitoramento...")
         self.monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
         self.monitor_thread.start()
+        logger.info(f"✅ LineMonitoringService: Thread de monitoramento iniciada - ID: {self.monitor_thread.ident}")
         
-        logger.info("Serviço de monitoramento iniciado")
+        logger.info("🎉 LineMonitoringService: Serviço de monitoramento completamente iniciado!")
     
     def stop_service(self):
         """Para o serviço de monitoramento"""
+        logger.info("⏹️ LineMonitoringService: Parando serviço...")
         self.running = False
-        logger.info("Serviço de monitoramento parado")
+        logger.info("✅ LineMonitoringService: Serviço de monitoramento parado")
     
     def _scan_loop(self):
         """Loop principal para escanear novas oportunidades"""
@@ -336,18 +342,23 @@ class PreLiveManager:
     
     def start(self):
         """Inicia todo o sistema"""
-        logger.info("Iniciando sistema TennisQ Pré-Live...")
+        logger.info("🚀 PreLiveManager: Iniciando sistema TennisQ Pré-Live...")
         
         # Envia notificação de início para o canal
+        logger.info("📱 PreLiveManager: Enviando notificação de startup...")
         self.monitoring_service.send_startup_notification()
         
         # Inicia o serviço de monitoramento
+        logger.info("🔄 PreLiveManager: Iniciando serviço de monitoramento...")
         self.monitoring_service.start_service()
+        
+        logger.info("✅ PreLiveManager: Sistema totalmente iniciado!")
     
     def stop(self):
         """Para todo o sistema"""
-        logger.info("Parando sistema TennisQ Pré-Live...")
+        logger.info("⏹️ PreLiveManager: Parando sistema TennisQ Pré-Live...")
         self.monitoring_service.stop_service()
+        logger.info("✅ PreLiveManager: Sistema parado!")
     
     def get_dashboard_data(self) -> Dict:
         """Retorna dados para o dashboard"""

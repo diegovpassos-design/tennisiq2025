@@ -34,6 +34,12 @@ class TennisQRailwayApp:
         self.db = PreLiveDatabase()
         self.flask_app = Flask(__name__)
         self.running = False
+        
+        # Silencia logs do Werkzeug (servidor Flask)
+        import logging
+        werkzeug_logger = logging.getLogger('werkzeug')
+        werkzeug_logger.setLevel(logging.WARNING)  # Apenas warnings e erros
+        
         self.setup_flask_routes()
         
     def setup_flask_routes(self):
@@ -46,6 +52,51 @@ class TennisQRailwayApp:
                 "service": "TennisQ Pré-Live",
                 "timestamp": datetime.utcnow().isoformat()
             }
+            
+        @self.flask_app.route('/dashboard')
+        def dashboard():
+            """Dashboard simples"""
+            try:
+                if self.manager:
+                    data = self.manager.get_dashboard_data()
+                    return {
+                        "status": "ok",
+                        "data": data,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                else:
+                    return {"status": "initializing", "message": "System starting up"}
+            except Exception as e:
+                return {"status": "error", "error": str(e)}
+        
+        @self.flask_app.route('/api/stats')
+        def api_stats():
+            """API de estatísticas"""
+            try:
+                if self.manager:
+                    stats = self.manager.get_dashboard_data().get("statistics", {})
+                    return {"status": "ok", "stats": stats}
+                else:
+                    return {"status": "initializing"}
+            except Exception as e:
+                return {"status": "error", "error": str(e)}
+        
+        @self.flask_app.route('/api/matches')
+        def api_matches():
+            """API de partidas ativas"""
+            try:
+                if self.manager:
+                    matches = self.manager.get_dashboard_data().get("active_opportunities", [])
+                    return {"status": "ok", "matches": matches[:20]}  # Limita a 20
+                else:
+                    return {"status": "initializing", "matches": []}
+            except Exception as e:
+                return {"status": "error", "error": str(e)}
+        
+        @self.flask_app.route('/favicon.ico')
+        def favicon():
+            """Favicon para evitar 404s"""
+            return '', 204  # No Content
         
     def start(self):
         """Inicia o sistema"""
@@ -60,8 +111,9 @@ class TennisQRailwayApp:
             config_file_path = os.path.join(os.path.dirname(__file__), "config", "config.json")
             self.manager = PreLiveManager(config_path=config_file_path)
             
-            # Inicia o serviço de monitoramento em thread separada
-            monitor_thread = threading.Thread(target=self._start_monitoring, daemon=True)
+            # Inicia o serviço de monitoramento em thread separada (não daemon para debug)
+            logger.info("🚀 Iniciando thread de monitoramento...")
+            monitor_thread = threading.Thread(target=self._start_monitoring_with_debug, daemon=False)
             monitor_thread.start()
             
             self.running = True
@@ -73,10 +125,15 @@ class TennisQRailwayApp:
             
             # Inicia Flask server
             port = int(os.getenv('PORT', 8080))
-            self.flask_app.run(host='0.0.0.0', port=port, debug=False)
+            logger.info(f"🌐 Iniciando servidor Flask na porta {port}")
+            
+            # Roda Flask em modo não-debug para produção
+            self.flask_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
             
         except Exception as e:
             logger.error(f"❌ Erro ao iniciar sistema: {e}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
             self._send_error_notification(str(e))
     
     def _start_monitoring(self):
@@ -85,6 +142,62 @@ class TennisQRailwayApp:
             self.manager.start()
         except Exception as e:
             logger.error(f"Erro no monitoramento: {e}")
+            raise
+    
+    def _start_monitoring_with_debug(self):
+        """Inicia o serviço de monitoramento com logs detalhados"""
+        try:
+            logger.info("🔍 DEBUG: Iniciando serviço de monitoramento...")
+            
+            # Aguarda um pouco para garantir que tudo está inicializado
+            time.sleep(2)
+            
+            # Inicia o manager
+            logger.info("🔍 DEBUG: Chamando manager.start()...")
+            self.manager.start()
+            
+            logger.info("✅ DEBUG: Monitoramento iniciado com sucesso!")
+            
+            # Loop de debug para acompanhar o status
+            debug_count = 0
+            while self.running:
+                try:
+                    debug_count += 1
+                    
+                    # Log de debug a cada 5 minutos
+                    if debug_count % 5 == 0:
+                        logger.info(f"🔍 DEBUG #{debug_count}: Verificando status do monitoramento...")
+                        
+                        if hasattr(self.manager, 'monitoring_service'):
+                            service = self.manager.monitoring_service
+                            status = service.get_service_status()
+                            
+                            logger.info(f"🔍 DEBUG: Service running: {status.get('running', False)}")
+                            logger.info(f"🔍 DEBUG: Scan thread alive: {status.get('scan_thread_alive', False)}")
+                            logger.info(f"🔍 DEBUG: Monitor thread alive: {status.get('monitor_thread_alive', False)}")
+                        
+                        # Verifica quantas oportunidades temos
+                        try:
+                            dashboard_data = self.manager.get_dashboard_data()
+                            active_count = len(dashboard_data.get('active_opportunities', []))
+                            logger.info(f"🔍 DEBUG: {active_count} oportunidades ativas")
+                        except Exception as e:
+                            logger.warning(f"🔍 DEBUG: Erro ao buscar dashboard data: {e}")
+                    
+                    # Aguarda 1 minuto
+                    time.sleep(60)
+                    
+                except Exception as e:
+                    logger.error(f"🔍 DEBUG: Erro no loop de debug: {e}")
+                    import traceback
+                    logger.error(f"Stack trace: {traceback.format_exc()}")
+                    time.sleep(60)
+                    
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Erro crítico no monitoramento: {e}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
+            self._send_error_notification(f"Erro crítico no monitoramento: {e}")
             raise
     
     def stop(self):
