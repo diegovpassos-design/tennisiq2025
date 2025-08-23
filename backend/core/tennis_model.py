@@ -276,15 +276,18 @@ class SophisticatedTennisModel:
         }
     
     def calculate_probability(self, home_player: str, away_player: str, 
-                            surface: str = "hard", tournament_level: str = "regular") -> float:
+                            surface: str = "hard", tournament_level: str = "regular",
+                            home_odds: float = None, away_odds: float = None) -> float:
         """
-        Calcula probabilidade do home_player vencer
+        Calcula probabilidade do home_player vencer usando modelo baseado em odds reais
         
         Args:
             home_player: Nome do jogador 1
             away_player: Nome do jogador 2  
             surface: Superfície (hard, clay, grass, indoor)
             tournament_level: Nível do torneio (grand_slam, masters, regular)
+            home_odds: Odds do home player (para ancoragem no mercado)
+            away_odds: Odds do away player (para ancoragem no mercado)
             
         Returns:
             Probabilidade entre 0.05 e 0.95
@@ -302,6 +305,13 @@ class SophisticatedTennisModel:
                 real_data_provider=self.real_data_provider
             )
             
+            # Se temos odds do mercado, usa modelo market-based
+            if home_odds and away_odds and home_odds > 1.0 and away_odds > 1.0:
+                return self._calculate_market_based_probability(
+                    player1, player2, surface, home_odds, away_odds, tournament_level
+                )
+            
+            # Fallback para método tradicional
             # Verifica se temos dados reais ou apenas padrões
             has_real_data = (self._has_real_player_data(player1) and 
                            self._has_real_player_data(player2))
@@ -441,6 +451,179 @@ class SophisticatedTennisModel:
         return (player.ranking != 999 and 
                 player.recent_form != 0.50 and 
                 player.elo_rating != 1500)
+    
+    def _assess_data_confidence(self, player1: PlayerStats, player2: PlayerStats) -> float:
+        """Avalia a confiança nos dados dos jogadores (0.0 a 1.0)"""
+        def _assess_single_player(player: PlayerStats) -> float:
+            confidence = 0.0
+            
+            # Ranking válido
+            if player.ranking < 500 and player.ranking != 999:
+                confidence += 0.5
+            elif player.ranking < 1000 and player.ranking != 999:
+                confidence += 0.3
+            
+            # Form diferente do padrão
+            if player.recent_form != 0.50:
+                confidence += 0.2
+            
+            # ELO diferente do padrão
+            if player.elo_rating != 1500:
+                confidence += 0.2
+            
+            # Dados atualizados recentemente
+            if player.last_updated:
+                try:
+                    from datetime import datetime
+                    last_update = datetime.fromisoformat(player.last_updated)
+                    days_old = (datetime.utcnow() - last_update).days
+                    if days_old < 30:
+                        confidence += 0.1
+                except:
+                    pass
+            
+            return min(1.0, confidence)
+        
+        p1_confidence = _assess_single_player(player1)
+        p2_confidence = _assess_single_player(player2)
+        
+        return (p1_confidence + p2_confidence) / 2.0
+    
+    def _calculate_market_based_probability(self, player1: PlayerStats, player2: PlayerStats, 
+                                          surface: str, home_odds: float, away_odds: float,
+                                          tournament_level: str = "regular") -> float:
+        """
+        Calcula probabilidade usando odds do mercado como âncora
+        Faz pequenos ajustes baseados em dados reais confiáveis
+        """
+        try:
+            # 1. Probabilidade base do mercado (remove margem da casa)
+            p_market_home = 1.0 / home_odds
+            p_market_away = 1.0 / away_odds
+            total_market = p_market_home + p_market_away
+            p_base_home = p_market_home / total_market  # Probabilidade normalizada
+            
+            # 2. Avalia confiança nos dados dos jogadores
+            confidence = self._assess_data_confidence(player1, player2)
+            
+            logger.info(f"Market-based calc: Base prob {p_base_home:.3f}, Confidence {confidence:.3f}")
+            
+            # 3. Se confiança muito baixa, segue o mercado com ruído mínimo
+            if confidence < 0.3:
+                import random
+                adjustment = random.uniform(-0.02, 0.02)  # ±2% máximo
+                logger.info(f"Low confidence - following market with adjustment {adjustment:.3f}")
+                return max(0.05, min(0.95, p_base_home + adjustment))
+            
+            # 4. Com dados confiáveis, calcula pequenos ajustes
+            adjustments = 0.0
+            
+            # Surface specialist bonus
+            surface_adj = self._get_surface_adjustment(player1, player2, surface)
+            adjustments += surface_adj
+            
+            # Head-to-head histórico
+            h2h_adj = self._get_h2h_adjustment(player1.name, player2.name)
+            adjustments += h2h_adj
+            
+            # Recent form (só se dados são confiáveis)
+            if confidence > 0.6:
+                form_adj = self._get_form_adjustment(player1, player2)
+                adjustments += form_adj
+            
+            # Ranking adjustment (só se não são defaults)
+            if player1.ranking != 999 and player2.ranking != 999:
+                ranking_adj = self._get_ranking_adjustment(player1, player2)
+                adjustments += ranking_adj
+            
+            # 5. Aplica ajustes com peso baseado na confiança
+            # Máximo 15% de ajuste para confidence máxima
+            max_adjustment = 0.15 * confidence
+            final_adjustment = max(-max_adjustment, min(max_adjustment, adjustments))
+            
+            final_probability = p_base_home + final_adjustment
+            
+            logger.info(f"Final adjustments: {final_adjustment:.3f}, Final prob: {final_probability:.3f}")
+            
+            return max(0.05, min(0.95, final_probability))
+            
+        except Exception as e:
+            logger.warning(f"Erro no cálculo market-based: {e}")
+            # Fallback para probabilidade do mercado
+            p_market_home = 1.0 / home_odds
+            p_market_away = 1.0 / away_odds
+            return p_market_home / (p_market_home + p_market_away)
+    
+    def _get_surface_adjustment(self, player1: PlayerStats, player2: PlayerStats, surface: str) -> float:
+        """Calcula ajuste baseado em especialização na superfície"""
+        try:
+            if surface not in player1.win_rate_surface or surface not in player2.win_rate_surface:
+                return 0.0
+            
+            wr1 = player1.win_rate_surface[surface]
+            wr2 = player2.win_rate_surface[surface]
+            
+            # Se ambos têm win rates padrão, ignora
+            if wr1 == 0.5 and wr2 == 0.5:
+                return 0.0
+            
+            # Calcula diferença normalizada
+            diff = (wr1 - wr2) * 0.1  # Máximo 10% de impacto
+            return max(-0.05, min(0.05, diff))  # Limita a ±5%
+            
+        except:
+            return 0.0
+    
+    def _get_h2h_adjustment(self, player1_name: str, player2_name: str) -> float:
+        """Calcula ajuste baseado em head-to-head histórico"""
+        try:
+            h2h = self.player_db.get_head_to_head(player1_name, player2_name)
+            total_matches = h2h["player1_wins"] + h2h["player2_wins"]
+            
+            if total_matches < 3:  # Poucos jogos, baixo impacto
+                return 0.0
+            
+            win_rate = h2h["player1_wins"] / total_matches
+            
+            # Reduz impacto se poucos jogos
+            confidence = min(1.0, total_matches / 10.0)
+            adjustment = (win_rate - 0.5) * confidence * 0.08  # Máximo 8% de impacto
+            
+            return max(-0.04, min(0.04, adjustment))  # Limita a ±4%
+            
+        except:
+            return 0.0
+    
+    def _get_form_adjustment(self, player1: PlayerStats, player2: PlayerStats) -> float:
+        """Calcula ajuste baseado na forma recente"""
+        try:
+            # Se ambos têm form padrão, ignora
+            if player1.recent_form == 0.5 and player2.recent_form == 0.5:
+                return 0.0
+            
+            form_diff = player1.recent_form - player2.recent_form
+            adjustment = form_diff * 0.06  # Máximo 6% de impacto
+            
+            return max(-0.03, min(0.03, adjustment))  # Limita a ±3%
+            
+        except:
+            return 0.0
+    
+    def _get_ranking_adjustment(self, player1: PlayerStats, player2: PlayerStats) -> float:
+        """Calcula ajuste baseado na diferença de ranking"""
+        try:
+            # Normaliza rankings (melhor = menor número)
+            rank1 = min(1000, max(1, player1.ranking))
+            rank2 = min(1000, max(1, player2.ranking))
+            
+            # Diferença logarítmica normalizada
+            rank_diff = (rank2 - rank1) / 500.0  # Normaliza diferença
+            adjustment = rank_diff * 0.05  # Máximo 5% de impacto
+            
+            return max(-0.025, min(0.025, adjustment))  # Limita a ±2.5%
+            
+        except:
+            return 0.0
     
     def _calculate_with_real_data(self, player1: PlayerStats, player2: PlayerStats, surface: str) -> dict:
         """Cálculo original usando dados reais dos jogadores"""
