@@ -19,11 +19,25 @@ sys.path.append(os.path.dirname(__file__))
 from services.monitoring_service import PreLiveManager
 from core.database import PreLiveDatabase
 
-# Configuração de logging
+# Configuração de logging mais robusta para Railway
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True  # Força reconfiguração do logging
 )
+
+# Configura logging para stdout (Railway)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Handler para stdout
+if not root_logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
+
 logger = logging.getLogger(__name__)
 
 class TennisQRailwayApp:
@@ -100,39 +114,54 @@ class TennisQRailwayApp:
         
     def start(self):
         """Inicia o sistema"""
+        print("🎾 [PRINT] Iniciando TennisQ Pré-Live no Railway...")
         logger.info("🎾 Iniciando TennisQ Pré-Live no Railway...")
+        sys.stdout.flush()
         
         try:
             # Verifica configuração
+            print("🔧 [PRINT] Verificando configuração...")
             config = self._verify_config()
+            print("✅ [PRINT] Configuração verificada!")
             
             # Inicializa o manager
-            # Configura manager com path correto
+            print("🏗️ [PRINT] Inicializando manager...")
             config_file_path = os.path.join(os.path.dirname(__file__), "config", "config.json")
             self.manager = PreLiveManager(config_path=config_file_path)
+            print("✅ [PRINT] Manager inicializado!")
             
             # Inicia o serviço de monitoramento em thread separada (não daemon para debug)
+            print("🚀 [PRINT] Iniciando thread de monitoramento...")
             logger.info("🚀 Iniciando thread de monitoramento...")
             monitor_thread = threading.Thread(target=self._start_monitoring_with_debug, daemon=False)
             monitor_thread.start()
+            print("✅ [PRINT] Thread de monitoramento iniciada!")
             
             self.running = True
             
             # Envia notificação de início
+            print("📱 [PRINT] Enviando notificação de início...")
             self._send_startup_notification()
+            print("✅ [PRINT] Notificação enviada!")
             
             logger.info("✅ Sistema iniciado com sucesso!")
+            print("🎉 [PRINT] Sistema iniciado com sucesso!")
             
             # Inicia Flask server
             port = int(os.getenv('PORT', 8080))
+            print(f"🌐 [PRINT] Iniciando servidor Flask na porta {port}")
             logger.info(f"🌐 Iniciando servidor Flask na porta {port}")
+            sys.stdout.flush()
             
             # Roda Flask em modo não-debug para produção
             self.flask_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
             
         except Exception as e:
-            logger.error(f"❌ Erro ao iniciar sistema: {e}")
+            error_msg = f"❌ Erro ao iniciar sistema: {e}"
+            print(f"❌ [PRINT] {error_msg}")
+            logger.error(error_msg)
             import traceback
+            traceback.print_exc()
             logger.error(f"Stack trace: {traceback.format_exc()}")
             self._send_error_notification(str(e))
     
@@ -147,56 +176,65 @@ class TennisQRailwayApp:
     def _start_monitoring_with_debug(self):
         """Inicia o serviço de monitoramento com logs detalhados"""
         try:
+            print("🔍 DEBUG: Iniciando serviço de monitoramento...")
             logger.info("🔍 DEBUG: Iniciando serviço de monitoramento...")
             
             # Aguarda um pouco para garantir que tudo está inicializado
             time.sleep(2)
             
             # Inicia o manager
+            print("🔍 DEBUG: Chamando manager.start()...")
             logger.info("🔍 DEBUG: Chamando manager.start()...")
             self.manager.start()
             
+            print("✅ DEBUG: Monitoramento iniciado com sucesso!")
             logger.info("✅ DEBUG: Monitoramento iniciado com sucesso!")
             
-            # Loop de debug para acompanhar o status
+            # Loop de debug simplificado
             debug_count = 0
             while self.running:
                 try:
                     debug_count += 1
                     
-                    # Log de debug a cada 5 minutos
-                    if debug_count % 5 == 0:
-                        logger.info(f"🔍 DEBUG #{debug_count}: Verificando status do monitoramento...")
+                    # Log de debug a cada 2 minutos para ver atividade
+                    if debug_count % 2 == 0:
+                        msg = f"🔍 DEBUG #{debug_count}: Sistema ativo há {debug_count * 2} minutos"
+                        print(msg)
+                        logger.info(msg)
+                        sys.stdout.flush()  # Força flush do stdout
                         
-                        if hasattr(self.manager, 'monitoring_service'):
-                            service = self.manager.monitoring_service
-                            status = service.get_service_status()
-                            
-                            logger.info(f"🔍 DEBUG: Service running: {status.get('running', False)}")
-                            logger.info(f"🔍 DEBUG: Scan thread alive: {status.get('scan_thread_alive', False)}")
-                            logger.info(f"🔍 DEBUG: Monitor thread alive: {status.get('monitor_thread_alive', False)}")
-                        
-                        # Verifica quantas oportunidades temos
+                        # Verifica status básico
                         try:
-                            dashboard_data = self.manager.get_dashboard_data()
-                            active_count = len(dashboard_data.get('active_opportunities', []))
-                            logger.info(f"🔍 DEBUG: {active_count} oportunidades ativas")
+                            if hasattr(self.manager, 'monitoring_service'):
+                                service = self.manager.monitoring_service
+                                running_status = service.running
+                                msg2 = f"🔍 DEBUG: Serviço running = {running_status}"
+                                print(msg2)
+                                logger.info(msg2)
+                                sys.stdout.flush()
                         except Exception as e:
-                            logger.warning(f"🔍 DEBUG: Erro ao buscar dashboard data: {e}")
+                            error_msg = f"🔍 DEBUG: Erro ao verificar status: {e}"
+                            print(error_msg)
+                            logger.error(error_msg)
+                            sys.stdout.flush()
                     
                     # Aguarda 1 minuto
                     time.sleep(60)
                     
                 except Exception as e:
-                    logger.error(f"🔍 DEBUG: Erro no loop de debug: {e}")
-                    import traceback
-                    logger.error(f"Stack trace: {traceback.format_exc()}")
+                    error_msg = f"🔍 DEBUG: Erro no loop de debug: {e}"
+                    print(error_msg)
+                    logger.error(error_msg)
+                    sys.stdout.flush()
                     time.sleep(60)
                     
         except Exception as e:
-            logger.error(f"❌ DEBUG: Erro crítico no monitoramento: {e}")
+            critical_msg = f"❌ DEBUG: Erro crítico no monitoramento: {e}"
+            print(critical_msg)
+            logger.error(critical_msg)
+            sys.stdout.flush()
             import traceback
-            logger.error(f"Stack trace: {traceback.format_exc()}")
+            traceback.print_exc()
             self._send_error_notification(f"Erro crítico no monitoramento: {e}")
             raise
     
