@@ -201,17 +201,33 @@ class LineMonitoringService:
         try:
             # Envia cada oportunidade como mensagem separada
             for i, opp in enumerate(new_opportunities, 1):
+                # ⚠️ VALIDAÇÃO DE ODDS ANTES DE ENVIAR
+                current_odds = self.scanner.get_event_odds(opp.event_id)
+                if current_odds:
+                    # Verifica se as odds mudaram significativamente (>10%)
+                    odds_changed = False
+                    current_odd = current_odds.home_od if opp.side == "HOME" else current_odds.away_od
+                    
+                    if abs(current_odd - opp.odd) / opp.odd > 0.10:  # 10% de diferença
+                        odds_changed = True
+                        logger.warning(f"⚠️ Odds mudaram significativamente para {opp.match}: {opp.odd} → {current_odd}")
+                
                 ev_percent = opp.ev * 100
                 
                 # Determina qual jogador apostar baseado no lado
                 home_player, away_player = opp.match.split(' vs ')
                 target_player = home_player if opp.side == "HOME" else away_player
                 
-                # Extrai data e hora do start_utc
-                from datetime import datetime
+                # Extrai data e hora do start_utc e converte para timezone brasileiro
+                from datetime import datetime, timezone, timedelta
                 start_dt = datetime.fromisoformat(opp.start_utc.replace('Z', '+00:00'))
-                date_str = start_dt.strftime('%d/%m')
-                time_str = start_dt.strftime('%H:%M')
+                
+                # Converte para horário brasileiro (UTC-3)
+                br_timezone = timezone(timedelta(hours=-3))
+                start_dt_br = start_dt.astimezone(br_timezone)
+                
+                date_str = start_dt_br.strftime('%d/%m')
+                time_str = start_dt_br.strftime('%H:%M')
                 
                 # Cria mensagem individual com formato completo
                 message = f"🎾 OPORTUNIDADE {i}\n\n"
@@ -220,6 +236,11 @@ class LineMonitoringService:
                 message += f"🎯 **{target_player}** @ {opp.odd}\n"
                 message += f"📊 EV: **{ev_percent:.1f}%**\n"
                 message += f"📅 {date_str} às {time_str}"
+                
+                # ⚠️ ADICIONA AVISO SE ODDS MUDARAM
+                if current_odds and abs(current_odd - opp.odd) / opp.odd > 0.10:
+                    message += f"\n\n⚠️ **ATENÇÃO**: Odds atual @ {current_odd:.2f}"
+                    message += f"\n🔄 Verificar casa de apostas antes de apostar"
                 
                 # Envia cada mensagem separadamente
                 self._send_telegram_message(message)
