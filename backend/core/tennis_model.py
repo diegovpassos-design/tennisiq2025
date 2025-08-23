@@ -1,53 +1,64 @@
 """
-Sistema de dados e rankings para o modelo de probabilidades do TennisQ
+TennisQ - Modelo SIMPLIFICADO baseado apenas em odds
+Remove dependência de ranking, form, elo e dados de jogadores
 """
 
-import json
-import requests
-import sqlite3
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
 import logging
-from dataclasses import dataclass
-from pathlib import Path
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
-@dataclass
-class PlayerStats:
-    """Estatísticas de um jogador"""
-    name: str
-    ranking: int = 999  # ATP/WTA ranking
-    elo_rating: float = 1500.0  # Elo geral
-    elo_surface: Dict[str, float] = None  # Elo por superfície
-    recent_form: float = 0.5  # Forma recente (0-1)
-    matches_last_30d: int = 0  # Jogos últimos 30 dias
-    win_rate_surface: Dict[str, float] = None  # Win rate por superfície
-    last_updated: str = ""
+class SophisticatedTennisModel:
+    """
+    Modelo ULTRA SIMPLIFICADO para o TennisQ
+    Usa apenas odds do mercado para calcular probabilidades
+    Remove toda complexidade de dados de jogadores
+    """
     
-    def __post_init__(self):
-        if self.elo_surface is None:
-            self.elo_surface = {
-                "hard": 1500.0,
-                "clay": 1500.0, 
-                "grass": 1500.0,
-                "indoor": 1500.0
-            }
-        if self.win_rate_surface is None:
-            self.win_rate_surface = {
-                "hard": 0.5,
-                "clay": 0.5,
-                "grass": 0.5, 
-                "indoor": 0.5
-            }
-
-class PlayerDatabase:
-    """Banco de dados de jogadores e estatísticas"""
+    def __init__(self, use_real_data: bool = False, api_token: str = None, api_base: str = None):
+        """Inicializa modelo simplificado - ignora todos os parâmetros"""
+        logger.info("🎯 Modelo SIMPLIFICADO inicializado - usando apenas odds")
+        logger.info("❌ Removida toda lógica de ranking, form, elo e dados de jogadores")
     
-    def __init__(self, db_path: str = "storage/database/players.db"):
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.init_database()
+    def calculate_match_probability(self, player1: str, player2: str, 
+                                  surface: str = "hard", 
+                                  league: str = "", 
+                                  home_odds: float = None, 
+                                  away_odds: float = None) -> Tuple[float, float, float]:
+        """
+        Calcula probabilidades usando APENAS as odds do mercado
+        Ignora completamente dados dos jogadores
+        
+        Returns:
+            (prob_home, prob_away, confidence) 
+            confidence sempre 1.0 pois usa apenas odds reais
+        """
+        try:
+            if home_odds is None or away_odds is None:
+                logger.warning("Odds não fornecidas - usando probabilidades padrão 50/50")
+                return 0.5, 0.5, 0.5
+            
+            # Converte odds para probabilidades implícitas
+            prob_home_market = 1.0 / home_odds
+            prob_away_market = 1.0 / away_odds
+            
+            # Normaliza para somar 1.0 (remove a margem da casa)
+            total_prob = prob_home_market + prob_away_market
+            prob_home_normalized = prob_home_market / total_prob
+            prob_away_normalized = prob_away_market / total_prob
+            
+            logger.info(f"🎯 Probabilidades baseadas APENAS em odds:")
+            logger.info(f"   {player1}: {prob_home_normalized:.3f} (odds {home_odds:.2f})")
+            logger.info(f"   {player2}: {prob_away_normalized:.3f} (odds {away_odds:.2f})")
+            
+            # Confidence sempre máxima pois usa dados reais do mercado
+            confidence = 1.0
+            
+            return prob_home_normalized, prob_away_normalized, confidence
+            
+        except Exception as e:
+            logger.error(f"Erro no cálculo simplificado: {e}")
+            return 0.5, 0.5, 0.5
         
     def init_database(self):
         """Inicializa tabelas do banco"""

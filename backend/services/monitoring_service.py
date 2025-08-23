@@ -126,7 +126,7 @@ class LineMonitoringService:
                 
                 # Aguarda 3 horas com logs intermediários
                 logger.info("😴 Aguardando 3 horas até próximo scan...")
-                self._sleep_with_heartbeat(3 * 3600, "⏰ Próximo scan em")  # 3 horas
+                self._sleep_with_heartbeat(1 * 3600, "⏰ Próximo scan em")  # 1 hora
                 
             except Exception as e:
                 logger.error(f"❌ Erro no loop de escaneamento: {e}")

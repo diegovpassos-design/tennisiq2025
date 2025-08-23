@@ -12,8 +12,8 @@ from typing import Dict, List, Optional, Tuple
 import logging
 from dataclasses import dataclass
 
-# Importa o modelo sofisticado
-from .tennis_model import SophisticatedTennisModel, PlayerDatabase
+# Importa o modelo simplificado
+from .tennis_model_simple import SophisticatedTennisModel, PlayerDatabase
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO)
@@ -325,79 +325,26 @@ class PreLiveScanner:
             logger.warning(f"Erro ao avaliar confidence: {e}")
             return 0.0
     
-    def _should_bet_based_on_confidence(self, ev: float, confidence: float, league: str) -> bool:
+    def _should_bet_simple_aggressive(self, ev: float, odds: float) -> bool:
         """
-        Determina se deve apostar baseado no EV, confidence e tipo de torneio
-        Implementa filtros inteligentes para evitar falso otimismo
+        Lógica AGRESSIVA simplificada: apenas EV + odds
+        Sem dependência de ranking, form ou confidence
+        
+        Critérios:
+        - Odds: 1.70 - 3.00
+        - EV: 3% - 25%
         """
-        # EV mínimo absoluto
-        if ev < 0.02:  # 2%
+        # Filtro 1: Range de odds
+        if odds < 1.70 or odds > 3.00:
+            logger.info(f"Odds {odds:.2f} fora do range 1.70-3.00 - rejeitando")
             return False
         
-        # Filtros baseados em confidence score
-        if confidence < 0.3:
-            # Confidence muito baixa - não apostar
-            logger.info(f"Confidence muito baixa ({confidence:.2f}) - rejeitando aposta")
+        # Filtro 2: Range de EV  
+        if ev < 0.03 or ev > 0.25:
+            logger.info(f"EV {ev:.3f} fora do range 3%-25% - rejeitando")
             return False
         
-        # Filtros por tipo de torneio
-        league_lower = league.lower()
-        is_itf = "itf" in league_lower
-        is_utr = "utr" in league_lower
-        is_challenger = "challenger" in league_lower
-        is_wta_atp = any(term in league_lower for term in ["wta", "atp", "grand slam"])
-        
-        # Limites de EV baseados em confidence e torneio
-        if is_wta_atp:
-            # WTA/ATP - dados mais confiáveis
-            if confidence >= 0.8:
-                max_ev = 0.18  # 18%
-            elif confidence >= 0.6:
-                max_ev = 0.15  # 15%
-            else:
-                max_ev = 0.12  # 12%
-        
-        elif is_challenger:
-            # Challenger - confiabilidade média
-            if confidence >= 0.7:
-                max_ev = 0.12  # 12%
-            elif confidence >= 0.5:
-                max_ev = 0.10  # 10%
-            else:
-                max_ev = 0.08  # 8%
-        
-        elif is_itf:
-            # ITF - menos confiável
-            if confidence >= 0.6:
-                max_ev = 0.10  # 10%
-            elif confidence >= 0.4:
-                max_ev = 0.08  # 8%
-            else:
-                max_ev = 0.06  # 6%
-        
-        elif is_utr:
-            # UTR - ainda menos confiável
-            if confidence >= 0.5:
-                max_ev = 0.08  # 8%
-            else:
-                max_ev = 0.05  # 5%
-        
-        else:
-            # Outros torneios - conservador
-            max_ev = 0.10  # 10%
-        
-        # Verifica se EV está dentro do limite
-        if ev > max_ev:
-            logger.info(f"EV muito alto ({ev:.3f}) para confidence {confidence:.2f} em {league} - limite {max_ev:.3f}")
-            return False
-        
-        # EV mínimo baseado em confidence
-        min_ev_for_confidence = 0.02 + (0.03 * (1.0 - confidence))  # 2% a 5%
-        if ev < min_ev_for_confidence:
-            logger.info(f"EV muito baixo ({ev:.3f}) para confidence {confidence:.2f} - mínimo {min_ev_for_confidence:.3f}")
-            return False
-        
-        logger.info(f"Aposta aprovada: EV {ev:.3f}, Conf {confidence:.2f}, Liga {league}")
+        logger.info(f"✅ Aposta APROVADA (versão agressiva): EV {ev:.3f}, Odds {odds:.2f}")
         return True
     
     def scan_opportunities(self, 
@@ -462,8 +409,8 @@ class PreLiveScanner:
                     ev_home = self.calculate_ev(odds_data.home_od, p_home_model)
                     logger.info(f"  🏠 HOME EV: {ev_home:.3f}")
                     
-                    # Aplica filtros baseados em confidence
-                    if self._should_bet_based_on_confidence(ev_home, confidence, match.league):
+                    # Aplica lógica simples agressiva (apenas EV + odds)
+                    if self._should_bet_simple_aggressive(ev_home, odds_data.home_od):
                         candidates.append({
                             "side": "HOME",
                             "ev": ev_home,
@@ -472,17 +419,17 @@ class PreLiveScanner:
                             "p_market": p_home_market,
                             "confidence": confidence
                         })
-                        logger.info(f"  ✅ OPORTUNIDADE HOME encontrada! EV: {ev_home:.3f}, Conf: {confidence:.2f}")
+                        logger.info(f"  ✅ OPORTUNIDADE HOME encontrada! EV: {ev_home:.3f}, Odds: {odds_data.home_od:.2f}")
                     else:
-                        logger.info(f"  ❌ HOME rejeitada por filtro de confidence")
+                        logger.info(f"  ❌ HOME rejeitada por filtro simples agressivo")
                 
                 # Verifica lado AWAY  
                 if away_in_range:
                     ev_away = self.calculate_ev(odds_data.away_od, p_away_model)
                     logger.info(f"  ✈️ AWAY EV: {ev_away:.3f}")
                     
-                    # Aplica filtros baseados em confidence
-                    if self._should_bet_based_on_confidence(ev_away, confidence, match.league):
+                    # Aplica lógica simples agressiva (apenas EV + odds)
+                    if self._should_bet_simple_aggressive(ev_away, odds_data.away_od):
                         candidates.append({
                             "side": "AWAY", 
                             "ev": ev_away,
@@ -491,9 +438,9 @@ class PreLiveScanner:
                             "p_market": p_away_market,
                             "confidence": confidence
                         })
-                        logger.info(f"  ✅ OPORTUNIDADE AWAY encontrada! EV: {ev_away:.3f}, Conf: {confidence:.2f}")
+                        logger.info(f"  ✅ OPORTUNIDADE AWAY encontrada! EV: {ev_away:.3f}, Odds: {odds_data.away_od:.2f}")
                     else:
-                        logger.info(f"  ❌ AWAY rejeitada por filtro de confidence")
+                        logger.info(f"  ❌ AWAY rejeitada por filtro simples agressivo")
                 
                 # 6. Adicionar oportunidades encontradas
                 for candidate in candidates:
