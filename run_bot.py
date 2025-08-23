@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-# Este arquivo existe porque o Railway insiste em executá-lo
-# Redirecionamento direto para server.py
+# Redirecionamento para o sistema correto no backend
 
 import os
 import sys
 
-# Executar server.py diretamente
+# Adiciona path do backend
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
+
+# Executar app principal do backend
 if __name__ == "__main__":
-    exec(open('server.py').read())
+    from app import main
+    main()
