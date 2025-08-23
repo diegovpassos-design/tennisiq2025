@@ -21,9 +21,38 @@ from core.database import PreLiveDatabase
 logger = logging.getLogger(__name__)
 
 class LineMonitoringService:
-    def __init__(self, config_path: str = "../config/config.json"):
-        with open(config_path, 'r') as f:
-            self.config = json.load(f)
+    def __init__(self, config_path: str = "backend/config/config.json"):
+        # Tentar carregar config de várias localizações
+        config_paths = [
+            config_path,
+            "../config/config.json", 
+            "config/config.json",
+            "backend/config/config.json"
+        ]
+        
+        config_loaded = False
+        for path in config_paths:
+            try:
+                with open(path, 'r') as f:
+                    self.config = json.load(f)
+                logger.info(f"✅ Config carregada de: {path}")
+                config_loaded = True
+                break
+            except FileNotFoundError:
+                continue
+        
+        if not config_loaded:
+            # Usar variáveis de ambiente como fallback
+            logger.warning("⚠️ Config file não encontrado, usando variáveis de ambiente")
+            self.config = {
+                "api_key": os.environ.get("API_KEY", "226997-BVn3XP4cGLAUfL"),
+                "api_base_url": os.environ.get("API_BASE_URL", "https://api.b365api.com"),
+                "telegram_token": os.environ.get("TELEGRAM_TOKEN", ""),
+                "chat_id": os.environ.get("CHAT_ID", ""),
+                "channel_id": os.environ.get("CHANNEL_ID", "")
+            }
+        
+        logger.info(f"🔑 Usando API Key: {self.config['api_key'][:10]}...")
         
         self.scanner = PreLiveScanner(
             api_token=self.config["api_key"],
