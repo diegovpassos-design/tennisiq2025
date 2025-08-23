@@ -112,6 +112,125 @@ class TennisQRailwayApp:
             """Favicon para evitar 404s"""
             return '', 204  # No Content
         
+        @self.flask_app.route('/debug')
+        def debug_status():
+            """Endpoint de debug para ver status detalhado"""
+            try:
+                status_info = {
+                    "system": {
+                        "running": self.running,
+                        "manager_initialized": self.manager is not None,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                }
+                
+                if self.manager:
+                    try:
+                        # Status do serviço de monitoramento
+                        service_status = self.manager.monitoring_service.get_service_status()
+                        status_info["monitoring_service"] = service_status
+                        
+                        # Dashboard data
+                        dashboard = self.manager.get_dashboard_data()
+                        status_info["dashboard"] = dashboard
+                        
+                        # Status das threads
+                        if hasattr(self.manager.monitoring_service, 'scan_thread'):
+                            scan_thread = self.manager.monitoring_service.scan_thread
+                            status_info["threads"] = {
+                                "scan_thread_alive": scan_thread.is_alive() if scan_thread else False,
+                                "scan_thread_id": scan_thread.ident if scan_thread else None,
+                            }
+                            
+                        if hasattr(self.manager.monitoring_service, 'monitor_thread'):
+                            monitor_thread = self.manager.monitoring_service.monitor_thread
+                            status_info["threads"]["monitor_thread_alive"] = monitor_thread.is_alive() if monitor_thread else False
+                            status_info["threads"]["monitor_thread_id"] = monitor_thread.ident if monitor_thread else None
+                            
+                    except Exception as e:
+                        status_info["error"] = f"Erro ao buscar status detalhado: {e}"
+                
+                return status_info
+                
+            except Exception as e:
+                return {"error": f"Erro geral no debug: {e}", "timestamp": datetime.utcnow().isoformat()}
+        
+        @self.flask_app.route('/force-log')
+        def force_log():
+            """Força um log de teste"""
+            try:
+                import time
+                timestamp = datetime.utcnow().strftime('%H:%M:%S')
+                
+                # Tenta várias formas de fazer log
+                print(f"🔴 [FORCE-LOG {timestamp}] Log forçado via print")
+                logger.info(f"🔴 [FORCE-LOG {timestamp}] Log forçado via logger")
+                
+                # Flush explícito
+                sys.stdout.flush()
+                sys.stderr.flush()
+                
+                # Se o manager existir, força um log nele também
+                if self.manager:
+                    try:
+                        service = self.manager.monitoring_service
+                        print(f"🔴 [FORCE-LOG {timestamp}] Service running: {service.running}")
+                        
+                        if hasattr(service, 'scan_thread') and service.scan_thread:
+                            print(f"🔴 [FORCE-LOG {timestamp}] Scan thread alive: {service.scan_thread.is_alive()}")
+                            
+                        if hasattr(service, 'monitor_thread') and service.monitor_thread:
+                            print(f"🔴 [FORCE-LOG {timestamp}] Monitor thread alive: {service.monitor_thread.is_alive()}")
+                            
+                    except Exception as e:
+                        print(f"🔴 [FORCE-LOG {timestamp}] Erro ao verificar threads: {e}")
+                
+                return {"status": "logs_forced", "timestamp": timestamp}
+                
+            except Exception as e:
+                return {"error": str(e)}
+        
+        @self.flask_app.route('/manual-scan')
+        def manual_scan():
+            """Executa um scan manual para teste"""
+            try:
+                timestamp = datetime.utcnow().strftime('%H:%M:%S')
+                print(f"🔴 [MANUAL-SCAN {timestamp}] Iniciando scan manual...")
+                
+                if not self.manager:
+                    return {"error": "Manager não inicializado"}
+                
+                # Executa scan manual
+                opportunities = self.manager.manual_scan()
+                
+                result = {
+                    "status": "scan_completed",
+                    "timestamp": timestamp,
+                    "opportunities_found": len(opportunities) if opportunities else 0
+                }
+                
+                if opportunities:
+                    result["opportunities"] = [
+                        {
+                            "match": opp.match,
+                            "side": opp.side,
+                            "odd": opp.odd,
+                            "ev": opp.ev,
+                            "league": opp.league
+                        } for opp in opportunities[:5]  # Primeiras 5
+                    ]
+                
+                print(f"🔴 [MANUAL-SCAN {timestamp}] Concluído: {result['opportunities_found']} oportunidades")
+                
+                return result
+                
+            except Exception as e:
+                error_msg = f"Erro no scan manual: {e}"
+                print(f"🔴 [MANUAL-SCAN] {error_msg}")
+                import traceback
+                traceback.print_exc()
+                return {"error": error_msg}
+        
     def start(self):
         """Inicia o sistema"""
         print("🎾 [PRINT] Iniciando TennisQ Pré-Live no Railway...")
