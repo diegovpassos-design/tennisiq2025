@@ -184,8 +184,16 @@ class TennisQRailwayApp:
         last_health_check = datetime.utcnow()
         health_check_interval = 3600  # 1 hora
         
+        loop_count = 0
+        
         while self.running:
             try:
+                loop_count += 1
+                
+                # Log de heartbeat a cada 10 loops (10 minutos)
+                if loop_count % 10 == 0:
+                    logger.info(f"💓 Loop principal ativo - ciclo {loop_count}")
+                
                 # Health check periódico
                 now = datetime.utcnow()
                 if (now - last_health_check).total_seconds() >= health_check_interval:
@@ -200,14 +208,24 @@ class TennisQRailwayApp:
                 break
             except Exception as e:
                 logger.error(f"❌ Erro no loop principal: {e}")
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
                 self._send_error_notification(f"Erro no loop principal: {e}")
                 time.sleep(300)  # 5 minutos antes de tentar novamente
     
     def _health_check(self):
         """Verifica se o sistema está funcionando corretamente"""
         try:
+            logger.info("🔍 Executando health check...")
+            
             status = self.manager.get_dashboard_data()
             service_status = status.get("service_status", {})
+            
+            # Verifica se as threads estão rodando
+            scan_alive = service_status.get("scan_thread_alive", False)
+            monitor_alive = service_status.get("monitor_thread_alive", False)
+            
+            logger.info(f"📊 Status threads - Scan: {scan_alive}, Monitor: {monitor_alive}")
             
             if not service_status.get("running", False):
                 logger.warning("⚠️ Serviço não está rodando, tentando reiniciar...")
@@ -215,11 +233,14 @@ class TennisQRailwayApp:
             
             stats = status.get("statistics", {})
             active_opps = stats.get("active_opportunities", 0)
+            total_opps = stats.get("total_opportunities", 0)
             
-            logger.info(f"💓 Health check: {active_opps} oportunidades ativas")
+            logger.info(f"💓 Health check: {active_opps} oportunidades ativas / {total_opps} total")
             
         except Exception as e:
             logger.error(f"❌ Erro no health check: {e}")
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
     
     def get_status(self):
         """Retorna status do sistema para monitoramento externo"""

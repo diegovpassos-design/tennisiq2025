@@ -62,12 +62,14 @@ class LineMonitoringService:
         """Loop principal para escanear novas oportunidades"""
         while self.running:
             try:
-                logger.info("Iniciando escaneamento de novas oportunidades...")
+                logger.info("🔍 Iniciando escaneamento de novas oportunidades...")
                 
                 # Limpeza de oportunidades enviadas expiradas
+                logger.info("🧹 Limpando oportunidades expiradas...")
                 self.db.cleanup_expired_sent_opportunities()
                 
-                # Escaneia oportunidades
+                # Escaneia oportunidades com timeout
+                logger.info("📡 Fazendo scan da API...")
                 opportunities = self.scanner.scan_opportunities(
                     hours_ahead=72,
                     min_ev=0.005,  # EV mínimo de 0.5% (mais sensível)
@@ -75,26 +77,33 @@ class LineMonitoringService:
                     odd_max=2.40   # Range ajustado conforme solicitado
                 )
                 
+                logger.info(f"📊 Encontradas {len(opportunities) if opportunities else 0} oportunidades")
+                
                 if opportunities:
                     # Salva no banco
                     saved_count = self.db.save_opportunities(opportunities)
-                    logger.info(f"Salvas {saved_count} novas oportunidades")
+                    logger.info(f"💾 Salvas {saved_count} novas oportunidades")
                     
                     # Envia notificação de TODAS as oportunidades
                     self._notify_best_opportunities(opportunities)
+                else:
+                    logger.info("📭 Nenhuma oportunidade encontrada neste scan")
                 
-                # Aguarda 3 horas antes do próximo scan completo
-                self._sleep_with_interrupt(3 * 3600)  # 3 horas
+                # Aguarda 3 horas com logs intermediários
+                logger.info("😴 Aguardando 3 horas até próximo scan...")
+                self._sleep_with_heartbeat(3 * 3600, "⏰ Próximo scan em")  # 3 horas
                 
             except Exception as e:
-                logger.error(f"Erro no loop de escaneamento: {e}")
+                logger.error(f"❌ Erro no loop de escaneamento: {e}")
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
                 self._sleep_with_interrupt(300)  # 5 minutos em caso de erro
     
     def _monitor_loop(self):
         """Loop para monitorar movimento de linha das oportunidades ativas"""
         while self.running:
             try:
-                logger.info("Monitorando movimento de linha...")
+                logger.info("📈 Monitorando movimento de linha...")
                 
                 # Busca oportunidades ativas
                 active_opps = self.db.get_active_opportunities(min_hours_ahead=0.5)
@@ -103,7 +112,10 @@ class LineMonitoringService:
                 for opp in active_opps:
                     events_to_monitor.add(opp["event_id"])
                 
+                logger.info(f"🎯 Monitorando {len(events_to_monitor)} eventos")
+                
                 # Monitora cada evento
+                monitored_count = 0
                 for event_id in events_to_monitor:
                     try:
                         odds_data = self.scanner.get_event_odds(event_id)
@@ -115,20 +127,23 @@ class LineMonitoringService:
                                 away_od=odds_data.away_od,
                                 timestamp=odds_data.timestamp
                             )
+                            monitored_count += 1
                         
                         # Pausa pequena entre requests
                         time.sleep(1)
                         
                     except Exception as e:
-                        logger.warning(f"Erro ao monitorar evento {event_id}: {e}")
+                        logger.warning(f"⚠️ Erro ao monitorar evento {event_id}: {e}")
                 
-                logger.info(f"Monitoramento concluído para {len(events_to_monitor)} eventos")
+                logger.info(f"✅ Monitoramento concluído: {monitored_count}/{len(events_to_monitor)} eventos atualizados")
                 
-                # Aguarda 30 minutos antes do próximo monitoramento
-                self._sleep_with_interrupt(30 * 60)  # 30 minutos
+                # Aguarda 30 minutos com logs intermediários
+                self._sleep_with_heartbeat(30 * 60, "📊 Próximo monitoramento em")  # 30 minutos
                 
             except Exception as e:
-                logger.error(f"Erro no loop de monitoramento: {e}")
+                logger.error(f"❌ Erro no loop de monitoramento: {e}")
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
                 self._sleep_with_interrupt(300)  # 5 minutos em caso de erro
     
     def _notify_best_opportunities(self, opportunities: List):
@@ -239,6 +254,35 @@ class LineMonitoringService:
         end_time = time.time() + seconds
         while time.time() < end_time and self.running:
             time.sleep(min(10, end_time - time.time()))
+    
+    def _sleep_with_heartbeat(self, seconds: int, message_prefix: str):
+        """Dorme por X segundos com logs de heartbeat regulares"""
+        start_time = time.time()
+        end_time = start_time + seconds
+        
+        # Log a cada 30 minutos durante sleeps longos
+        heartbeat_interval = min(1800, seconds // 4)  # 30 min ou 1/4 do tempo total
+        last_heartbeat = start_time
+        
+        while time.time() < end_time and self.running:
+            current_time = time.time()
+            
+            # Log de heartbeat
+            if current_time - last_heartbeat >= heartbeat_interval:
+                remaining = int(end_time - current_time)
+                hours = remaining // 3600
+                minutes = (remaining % 3600) // 60
+                
+                if hours > 0:
+                    time_str = f"{hours}h {minutes}m"
+                else:
+                    time_str = f"{minutes}m"
+                    
+                logger.info(f"💓 {message_prefix} {time_str}")
+                last_heartbeat = current_time
+            
+            # Sleep em chunks pequenos para permitir interrupção
+            time.sleep(min(10, end_time - current_time))
     
     def get_service_status(self) -> Dict:
         """Retorna status do serviço"""
