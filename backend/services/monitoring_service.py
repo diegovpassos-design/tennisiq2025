@@ -186,16 +186,46 @@ class LineMonitoringService:
         if not opportunities:
             return
         
+        # 🎯 NOVO: Filtra apenas jogos com 24h+ de antecedência
+        logger.info("🕐 Aplicando filtro de 24 horas para notificações...")
+        
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        
+        far_opportunities = []
+        for opp in opportunities:
+            try:
+                # Parse da data do jogo
+                start_dt = datetime.fromisoformat(opp.start_utc.replace('Z', ''))
+                hours_until_game = (start_dt - now).total_seconds() / 3600
+                
+                if hours_until_game >= 24:
+                    far_opportunities.append(opp)
+                    logger.info(f"✅ Jogo aceito: {opp.match} em {hours_until_game:.1f}h")
+                else:
+                    logger.info(f"⏰ Jogo muito próximo: {opp.match} em {hours_until_game:.1f}h - ignorado")
+                    
+            except Exception as e:
+                logger.warning(f"Erro ao calcular tempo do jogo {opp.match}: {e}")
+                # Em caso de erro, inclui na lista para não perder oportunidade
+                far_opportunities.append(opp)
+        
+        if not far_opportunities:
+            logger.info("📭 Nenhuma oportunidade com 24h+ de antecedência encontrada")
+            return
+        
+        logger.info(f"🎯 {len(far_opportunities)} de {len(opportunities)} oportunidades passaram no filtro de 24h")
+        
         # Filtra oportunidades que já foram enviadas
         new_opportunities = []
-        for opp in opportunities:
+        for opp in far_opportunities:
             if not self.db.is_opportunity_already_sent(opp):
                 new_opportunities.append(opp)
             else:
                 logger.info(f"Oportunidade já enviada: {opp.match} - {opp.side}")
         
         if not new_opportunities:
-            logger.info("Todas as oportunidades já foram enviadas anteriormente")
+            logger.info("Todas as oportunidades com 24h+ já foram enviadas anteriormente")
             return
             
         try:
@@ -293,8 +323,9 @@ class LineMonitoringService:
                 "🚀 TENNISQ PRÉ-LIVE INICIADO\n\n"
                 f"⏰ Hora: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
                 "🔍 Monitoramento ativo para oportunidades pré-live\n"
-                "⏱️ Ciclo de escaneamento: 3 horas\n"
-                "🎾 Análise de TODOS os jogos de tênis\n"
+                "⏱️ Ciclo de escaneamento: 1 hora\n"
+                "🕐 Filtro de notificação: 24h antes do jogo\n"
+                "🎾 Lógica AGRESSIVA: EV 3-25%, Odds 1.70-3.00\n"
                 "🌐 Dados reais via B365API (sport_id=13)\n\n"
                 "💡 Sistema operacional e pronto para detectar oportunidades!"
             )

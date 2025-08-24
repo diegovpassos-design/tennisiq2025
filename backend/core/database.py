@@ -160,6 +160,31 @@ class PreLiveDatabase:
             columns = [desc[0] for desc in cursor.description]
             return [dict(zip(columns, row)) for row in cursor.fetchall()]
     
+    def get_opportunities_for_notification(self, min_hours_ahead: int = 24) -> List[Dict]:
+        """
+        Busca oportunidades para NOTIFICAÇÃO (com tempo mínimo antes do jogo)
+        Usado apenas para envio inicial via Telegram
+        """
+        cutoff_time = (datetime.utcnow().replace(microsecond=0) + 
+                      timedelta(hours=min_hours_ahead)).isoformat()
+        
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT DISTINCT event_id, match_name, start_utc, league,
+                       side, odd, p_model, ev, p_market, confidence, created_at
+                FROM opportunities 
+                WHERE status = 'ACTIVE' 
+                  AND start_utc > ?
+                  AND event_id NOT IN (
+                      SELECT DISTINCT event_id FROM sent_opportunities
+                  )
+                ORDER BY ev DESC, created_at DESC
+            """, (cutoff_time,))
+            
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+    
     def get_line_movements(self, event_id: str) -> List[Dict]:
         """Busca histórico de movimento de linha de um evento"""
         with sqlite3.connect(self.db_path) as conn:
