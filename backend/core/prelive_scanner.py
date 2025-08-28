@@ -649,7 +649,12 @@ class PreLiveScanner:
             "djokovic", "nadal", "federer", "alcaraz", "medvedev", "sinner",
             "tsitsipas", "rublev", "fritz", "zverev", "berrettini", "hurkacz",
             "ruud", "auger-aliassime", "shapovalov", "atp", " men ", "male",
-            "masculino", "boys", "juniors men", " men's ", "mens "
+            "masculino", "boys", "juniors men", " men's ", "mens ",
+            # Indicadores ITF masculinos (CRÍTICO!)
+            "m25", "m15", "itf m25", "itf m15", "m25 ", "m15 ",
+            " m25", " m15", "m25 md", "m15 md", "m25 taipei", "m15 hong",
+            # Outros possíveis formatos masculinos
+            "men's doubles", "men's singles", "md", "ms"
         ]
         
         for indicator in male_indicators:
