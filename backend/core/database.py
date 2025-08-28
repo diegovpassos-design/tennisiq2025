@@ -108,12 +108,12 @@ class PreLiveDatabase:
                     cursor.execute("""
                         INSERT INTO opportunities (
                             event_id, match_name, start_utc, league, side,
-                            odd, p_model, ev, p_market, confidence, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            odd, p_model, ev, p_market, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         opp.event_id, opp.match, opp.start_utc, opp.league,
                         opp.side, opp.odd, opp.p_model, opp.ev, 
-                        opp.p_market, opp.confidence, created_at
+                        opp.p_market, created_at
                     ))
                     saved_count += 1
                 except sqlite3.Error as e:

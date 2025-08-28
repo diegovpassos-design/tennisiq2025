@@ -48,7 +48,6 @@ class Opportunity:
     p_model: float
     ev: float
     p_market: float
-    confidence: str
 
 class PreLiveScanner:
     def __init__(self, api_token: str, api_base: str):
@@ -743,7 +742,7 @@ def main():
         print(f"   Liga: {opp.league}")
         print(f"   Lado: {opp.side} | Odd: {opp.odd}")
         print(f"   P(Modelo): {opp.p_model:.1%} | P(Mercado): {opp.p_market:.1%}")
-        print(f"   EV: {opp.ev:.1%} | Confiança: {opp.confidence}")
+        print(f"   EV: {opp.ev:.1%} | Sistema: Simplificado")
         print(f"   Início: {opp.start_utc}")
         print()
 
