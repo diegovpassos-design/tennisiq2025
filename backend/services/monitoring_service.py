@@ -165,13 +165,12 @@ class LineMonitoringService:
                 logger.info("🧹 Limpando oportunidades expiradas...")
                 self.db.cleanup_expired_sent_opportunities()
                 
-                # Escaneia oportunidades com timeout
-                logger.info("📡 Fazendo scan da API...")
+                # Escaneia oportunidades SIMPLES - apenas odds 2.20-2.40 em jogos femininos
+                logger.info("📡 Fazendo scan SIMPLIFICADO da API...")
                 opportunities = self.scanner.scan_opportunities(
                     hours_ahead=72,
-                    min_ev=0.10,   # EV mínimo de 10% (ATUALIZADO)
-                    odd_min=1.80,  # Range ajustado conforme solicitado
-                    odd_max=2.40   # Range ajustado conforme solicitado
+                    odd_min=2.20,  # Odds mínima 2.20
+                    odd_max=2.40   # Odds máxima 2.40
                 )
                 
                 logger.info(f"📊 Encontradas {len(opportunities) if opportunities else 0} oportunidades")
@@ -290,8 +289,6 @@ class LineMonitoringService:
                         odds_changed = True
                         logger.warning(f"⚠️ Odds mudaram significativamente para {opp.match}: {opp.odd} → {current_odd}")
                 
-                ev_percent = opp.ev * 100
-                
                 # Determina qual jogador apostar baseado no lado
                 home_player, away_player = opp.match.split(' vs ')
                 target_player = home_player if opp.side == "HOME" else away_player
@@ -307,12 +304,11 @@ class LineMonitoringService:
                 date_str = start_dt_br.strftime('%d/%m')
                 time_str = start_dt_br.strftime('%H:%M')
                 
-                # Cria mensagem individual com formato completo
+                # Cria mensagem individual SIMPLES (sem EV)
                 message = f"🎾 OPORTUNIDADE {opportunity_number}\n\n"
                 message += f"🏆 {opp.league}\n"
                 message += f"⚔️ {opp.match}\n"
                 message += f"🎯 **{target_player}** @ {opp.odd}\n"
-                message += f"📊 EV: **{ev_percent:.1f}%** (10-15% range)\n"
                 message += f"📅 {date_str} às {time_str}"
                 
                 # ⚠️ ADICIONA AVISO SE ODDS MUDARAM
@@ -436,9 +432,8 @@ class LineMonitoringService:
         
         opportunities = self.scanner.scan_opportunities(
             hours_ahead=72,
-            min_ev=0.01,
-            odd_min=1.60,
-            odd_max=2.50
+            odd_min=2.20,
+            odd_max=2.40
         )
         
         if opportunities:

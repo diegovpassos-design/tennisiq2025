@@ -503,134 +503,83 @@ class PreLiveScanner:
     
     def scan_opportunities(self, 
                           hours_ahead: int = 48,
-                          min_ev: float = 0.02,
-                          odd_min: float = 1.80,
-                          odd_max: float = 2.20) -> List[Opportunity]:
+                          odd_min: float = 2.20,
+                          odd_max: float = 2.40) -> List[Opportunity]:
         """
-        Escaneia oportunidades de apostas pré-live
+        Escaneia oportunidades SIMPLES - apenas jogos femininos com odds 2.20-2.40
+        SEM cálculos de EV ou probabilidades complexas
         """
-        logger.info("Iniciando escaneamento de oportunidades pré-live...")
+        logger.info("🎾 Iniciando escaneamento SIMPLIFICADO...")
+        logger.info(f"📋 Filtros: Feminino + Odds {odd_min}-{odd_max}")
         
         events = self.get_upcoming_events(hours_ahead)
         opportunities = []
         
-        logger.info(f"🎾 Processando {len(events)} jogos individualmente...")
+        logger.info(f"🔍 Analisando {len(events)} jogos...")
         
         for i, match in enumerate(events, 1):
             try:
-                logger.info(f"📊 [{i}/{len(events)}] Analisando: {match.home} vs {match.away}")
+                logger.info(f"📊 [{i}/{len(events)}] {match.home} vs {match.away}")
                 
-                # NOVO FILTRO: Verificar se é jogo feminino
+                # FILTRO 1: Apenas jogos femininos (individuais e duplas)
                 if not self._is_female_match(match):
-                    logger.info(f"  ⚠️ Jogo masculino - IGNORANDO (apenas jogos femininos aceitos)")
+                    logger.info(f"  ❌ Jogo masculino - IGNORADO")
                     continue
                 
-                # 1. Buscar odds do jogo
-                logger.info(f"  🔍 Buscando odds...")
+                logger.info(f"  ✅ Jogo feminino detectado: {match.league}")
+                
+                # FILTRO 2: Buscar odds
                 odds_data = self.get_event_odds(match.event_id)
                 if not odds_data:
                     logger.info(f"  ❌ Odds não encontradas")
                     continue
                 
-                logger.info(f"  💰 Odds: Home {odds_data.home_od:.2f} | Away {odds_data.away_od:.2f}")
+                logger.info(f"  💰 Odds: {match.home} {odds_data.home_od:.2f} | {match.away} {odds_data.away_od:.2f}")
                 
-                # 2. Verificar se odds estão na faixa desejada
+                # FILTRO 3: Verificar se QUALQUER odd está na faixa 2.20-2.40
                 home_in_range = odd_min <= odds_data.home_od <= odd_max
                 away_in_range = odd_min <= odds_data.away_od <= odd_max
                 
                 if not (home_in_range or away_in_range):
-                    logger.info(f"  ⏭️ Odds fora da faixa [{odd_min}-{odd_max}]")
+                    logger.info(f"  ⏭️ Odds fora da faixa {odd_min}-{odd_max}")
                     continue
                 
-                # 3. Calcular probabilidades do mercado
-                logger.info(f"  📈 Calculando probabilidades...")
-                p_home_market, p_away_market = self.normalize_probabilities(
-                    odds_data.home_od, odds_data.away_od
-                )
-                
-                # 4. Calcular probabilidade do modelo (agora com odds para calibração)
-                logger.info(f"  🧠 Calculando probabilidade do modelo...")
-                p_home_model = self.calculate_model_probability(match, odds_data)
-                p_away_model = 1.0 - p_home_model
-                
-                logger.info(f"  📊 Probabilidades - Modelo: {p_home_model:.3f} | Mercado: {p_home_market:.3f}")
-                
-                # 5. Avaliar confiança nos dados dos jogadores
-                logger.info(f"  🔍 Avaliando confiança dos dados...")
-                confidence = self._assess_opportunity_confidence(match)
-                logger.info(f"  📈 Confidence score: {confidence:.2f}")
-                
-                # 6. Verificar oportunidades com filtros baseados em confidence
-                candidates = []
-                
-                # Verifica lado HOME
+                # CRIAR OPORTUNIDADES SIMPLES (sem EV ou probabilidades)
                 if home_in_range:
-                    ev_home = self.calculate_ev(odds_data.home_od, p_home_model)
-                    logger.info(f"  🏠 HOME EV: {ev_home:.3f}")
-                    
-                    # Aplica lógica simples agressiva (apenas EV + odds)
-                    if self._should_bet_simple_aggressive(ev_home, odds_data.home_od):
-                        candidates.append({
-                            "side": "HOME",
-                            "ev": ev_home,
-                            "odd": odds_data.home_od,
-                            "p_model": p_home_model,
-                            "p_market": p_home_market,
-                            "confidence": confidence
-                        })
-                        logger.info(f"  ✅ OPORTUNIDADE HOME encontrada! EV: {ev_home:.3f}, Odds: {odds_data.home_od:.2f}")
-                    else:
-                        logger.info(f"  ❌ HOME rejeitada por filtro simples agressivo")
-                
-                # Verifica lado AWAY  
-                if away_in_range:
-                    ev_away = self.calculate_ev(odds_data.away_od, p_away_model)
-                    logger.info(f"  ✈️ AWAY EV: {ev_away:.3f}")
-                    
-                    # Aplica lógica simples agressiva (apenas EV + odds)
-                    if self._should_bet_simple_aggressive(ev_away, odds_data.away_od):
-                        candidates.append({
-                            "side": "AWAY", 
-                            "ev": ev_away,
-                            "odd": odds_data.away_od,
-                            "p_model": p_away_model,
-                            "p_market": p_away_market,
-                            "confidence": confidence
-                        })
-                        logger.info(f"  ✅ OPORTUNIDADE AWAY encontrada! EV: {ev_away:.3f}, Odds: {odds_data.away_od:.2f}")
-                    else:
-                        logger.info(f"  ❌ AWAY rejeitada por filtro simples agressivo")
-                
-                # 6. Adicionar oportunidades encontradas
-                for candidate in candidates:
-                    confidence_level = self._calculate_confidence_level(candidate["ev"], candidate["p_model"])
-                    
-                    opportunity = Opportunity(
+                    opp = Opportunity(
                         event_id=match.event_id,
                         match=f"{match.home} vs {match.away}",
-                        start_utc=match.start_utc.isoformat() + "Z",
+                        start_utc=match.start_utc.strftime("%Y-%m-%d %H:%M"),
                         league=match.league,
-                        side=candidate["side"],
-                        odd=round(candidate["odd"], 3),
-                        p_model=round(candidate["p_model"], 3),
-                        ev=round(candidate["ev"], 3),
-                        p_market=round(candidate["p_market"], 3),
-                        confidence=confidence_level
+                        side="HOME",
+                        odd=odds_data.home_od,
+                        p_model=0.5,  # Não usado mais
+                        ev=0.0,       # Não usado mais
+                        p_market=0.5  # Não usado mais
                     )
-                    opportunities.append(opportunity)
-                    logger.info(f"  💎 Oportunidade adicionada: {candidate['side']} EV: {candidate['ev']:.3f}")
+                    opportunities.append(opp)
+                    logger.info(f"  🎯 OPORTUNIDADE: {match.home} @ {odds_data.home_od:.2f}")
                 
-                if not candidates:
-                    logger.info(f"  📭 Nenhuma oportunidade encontrada")
-                    
+                if away_in_range:
+                    opp = Opportunity(
+                        event_id=match.event_id + "_away",  # ID único
+                        match=f"{match.home} vs {match.away}",
+                        start_utc=match.start_utc.strftime("%Y-%m-%d %H:%M"),
+                        league=match.league,
+                        side="AWAY", 
+                        odd=odds_data.away_od,
+                        p_model=0.5,  # Não usado mais
+                        ev=0.0,       # Não usado mais
+                        p_market=0.5  # Não usado mais
+                    )
+                    opportunities.append(opp)
+                    logger.info(f"  🎯 OPORTUNIDADE: {match.away} @ {odds_data.away_od:.2f}")
+                
             except Exception as e:
-                logger.error(f"  ❌ Erro processando jogo {match.home} vs {match.away}: {e}")
+                logger.error(f"Erro ao processar {match.home} vs {match.away}: {e}")
                 continue
         
-        # Ordena por EV decrescente
-        opportunities.sort(key=lambda x: x.ev, reverse=True)
-        
-        logger.info(f"🎯 SCAN CONCLUÍDO: {len(opportunities)} oportunidades encontradas")
+        logger.info(f"✅ Escaneamento concluído: {len(opportunities)} oportunidades encontradas")
         return opportunities
     
     def _is_female_match(self, match: MatchEvent) -> bool:
