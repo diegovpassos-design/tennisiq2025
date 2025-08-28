@@ -489,16 +489,16 @@ class PreLiveScanner:
         
         Critérios:
         - Odds: 1.70 - 3.00
-        - EV: 3% - 25%
+        - EV: 10% - 15% (ATUALIZADO)
         """
         # Filtro 1: Range de odds
         if odds < 1.70 or odds > 3.00:
             logger.info(f"Odds {odds:.2f} fora do range 1.70-3.00 - rejeitando")
             return False
         
-        # Filtro 2: Range de EV  
-        if ev < 0.03 or ev > 0.25:
-            logger.info(f"EV {ev:.3f} fora do range 3%-25% - rejeitando")
+        # Filtro 2: Range de EV RESTRITO para 10%-15%
+        if ev < 0.10 or ev > 0.15:
+            logger.info(f"EV {ev:.3f} fora do range 10%-15% - rejeitando")
             return False
         
         logger.info(f"✅ Aposta APROVADA (versão agressiva): EV {ev:.3f}, Odds {odds:.2f}")
@@ -522,6 +522,11 @@ class PreLiveScanner:
         for i, match in enumerate(events, 1):
             try:
                 logger.info(f"📊 [{i}/{len(events)}] Analisando: {match.home} vs {match.away}")
+                
+                # NOVO FILTRO: Verificar se é jogo feminino
+                if not self._is_female_match(match):
+                    logger.info(f"  ⚠️ Jogo masculino - IGNORANDO (apenas jogos femininos aceitos)")
+                    continue
                 
                 # 1. Buscar odds do jogo
                 logger.info(f"  🔍 Buscando odds...")
@@ -631,6 +636,65 @@ class PreLiveScanner:
         logger.info(f"🎯 SCAN CONCLUÍDO: {len(opportunities)} oportunidades encontradas")
         return opportunities
     
+    def _is_female_match(self, match: MatchEvent) -> bool:
+        """
+        Detecta se o jogo é feminino (individual ou duplas)
+        Baseado no nome da liga e dos jogadores
+        """
+        league_lower = match.league.lower()
+        match_text = f"{match.home} vs {match.away}".lower()
+        
+        # Indicadores de tênis feminino nas ligas
+        female_league_indicators = [
+            "wta", "women", "ladies", "female", "feminino", "fem",
+            "girls", "juniors women", "itf women", "qualifying women"
+        ]
+        
+        # Verifica se a liga indica tênis feminino
+        for indicator in female_league_indicators:
+            if indicator in league_lower:
+                logger.info(f"✅ Jogo feminino detectado pela liga: {match.league}")
+                return True
+        
+        # Indicadores nos nomes dos jogadores/times (duplas femininas)
+        female_name_indicators = [
+            # Nomes tipicamente femininos comuns no tênis
+            "anna", "maria", "elena", "sofia", "coco", "iga", "aryna", "petra", 
+            "karolina", "elise", "jessica", "madison", "sloane", "venus", "serena",
+            "simona", "garbine", "caroline", "angelique", "anastasia", "daria",
+            "victoria", "elina", "julia", "marketa", "barbora", "kristina",
+            "camila", "beatriz", "laura", "sara", "clara", "amanda", "fernanda",
+            # Duplas femininas (formato comum)
+            "/", " / "  # Indica duplas
+        ]
+        
+        # Conta indicadores femininos nos nomes
+        female_indicators_count = 0
+        for indicator in female_name_indicators:
+            if indicator in match_text:
+                female_indicators_count += 1
+        
+        # Se encontrou pelo menos 2 indicadores femininos, provavelmente é jogo feminino
+        if female_indicators_count >= 2:
+            logger.info(f"✅ Jogo feminino detectado pelos nomes: {match.home} vs {match.away}")
+            return True
+        
+        # Lista de jogadoras conhecidas (top players)
+        known_female_players = [
+            "swiatek", "sabalenka", "gauff", "rybakina", "jabeur", "garcia", 
+            "pegula", "sakkari", "vondrousova", "krejcikova", "collins", 
+            "ostapenko", "haddad maia", "andreescu", "azarenka", "keys",
+            "kudermetova", "kasatkina", "bencic", "mertens", "pliskova"
+        ]
+        
+        for player in known_female_players:
+            if player in match_text:
+                logger.info(f"✅ Jogo feminino detectado - jogadora conhecida: {player}")
+                return True
+        
+        logger.info(f"❌ Jogo masculino detectado ou incerto: {match.home} vs {match.away}")
+        return False
+
     def _detect_surface(self, league_name: str) -> str:
         """Detecta o tipo de superfície baseado no nome do torneio"""
         league_lower = league_name.lower()
@@ -645,9 +709,9 @@ class PreLiveScanner:
             return "hard"  # padrão
     def _calculate_confidence_level(self, ev: float, p_model: float) -> str:
         """Calcula nível de confiança na oportunidade"""
-        if ev >= 0.05 and 0.3 <= p_model <= 0.7:
+        if ev >= 0.12 and 0.3 <= p_model <= 0.7:  # EV 12%+ = ALTA
             return "ALTA"
-        elif ev >= 0.03:
+        elif ev >= 0.10:  # EV 10%+ = MÉDIA
             return "MÉDIA"
         else:
             return "BAIXA"

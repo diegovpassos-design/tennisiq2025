@@ -107,7 +107,7 @@ class LineMonitoringService:
                 logger.info("📡 Fazendo scan da API...")
                 opportunities = self.scanner.scan_opportunities(
                     hours_ahead=72,
-                    min_ev=0.005,  # EV mínimo de 0.5% (mais sensível)
+                    min_ev=0.10,   # EV mínimo de 10% (ATUALIZADO)
                     odd_min=1.80,  # Range ajustado conforme solicitado
                     odd_max=2.40   # Range ajustado conforme solicitado
                 )
@@ -242,11 +242,11 @@ class LineMonitoringService:
                 time_str = start_dt_br.strftime('%H:%M')
                 
                 # Cria mensagem individual com formato completo
-                message = f"🎾 OPORTUNIDADE {i}\n\n"
+                message = f"🎾 OPORTUNIDADE FEMININA {i}\n\n"
                 message += f"🏆 {opp.league}\n"
                 message += f"⚔️ {opp.match}\n"
                 message += f"🎯 **{target_player}** @ {opp.odd}\n"
-                message += f"📊 EV: **{ev_percent:.1f}%**\n"
+                message += f"📊 EV: **{ev_percent:.1f}%** (10-15% range)\n"
                 message += f"📅 {date_str} às {time_str}"
                 
                 # ⚠️ ADICIONA AVISO SE ODDS MUDARAM
@@ -265,7 +265,7 @@ class LineMonitoringService:
                 time.sleep(1)
                 
             # Mensagem final de resumo
-            summary_message = f"💡 **{len(new_opportunities)} oportunidades** enviadas!"
+            summary_message = f"�‍🎾 **{len(new_opportunities)} oportunidades FEMININAS** enviadas! (EV: 10-15%)"
             self._send_telegram_message(summary_message)
             
             logger.info(f"Enviadas {len(new_opportunities)} novas oportunidades de {len(opportunities)} encontradas")
