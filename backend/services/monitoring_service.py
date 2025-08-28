@@ -64,6 +64,10 @@ class LineMonitoringService:
         self.scan_thread = None
         self.monitor_thread = None
         
+        # Arquivo para manter contador contínuo de oportunidades
+        self.counter_file = "storage/opportunity_counter.json"
+        self._ensure_counter_file()
+        
     def start_service(self):
         """Inicia o serviço de monitoramento"""
         if self.running:
@@ -86,6 +90,64 @@ class LineMonitoringService:
         logger.info(f"✅ LineMonitoringService: Thread de monitoramento iniciada - ID: {self.monitor_thread.ident}")
         
         logger.info("🎉 LineMonitoringService: Serviço de monitoramento completamente iniciado!")
+    
+    def stop_service(self):
+        """Para o serviço de monitoramento"""
+        logger.info("⏹️ LineMonitoringService: Parando serviço...")
+        self.running = False
+        logger.info("✅ LineMonitoringService: Serviço de monitoramento parado")
+    
+    def _ensure_counter_file(self):
+        """Garante que o arquivo de contador existe"""
+        try:
+            os.makedirs("storage", exist_ok=True)
+            if not os.path.exists(self.counter_file):
+                with open(self.counter_file, 'w') as f:
+                    json.dump({"counter": 0}, f)
+                logger.info("📊 Arquivo de contador criado")
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao criar arquivo de contador: {e}")
+    
+    def _get_next_opportunity_number(self):
+        """Obtém o próximo número da oportunidade (contínuo entre ciclos)"""
+        try:
+            with open(self.counter_file, 'r') as f:
+                data = json.load(f)
+            
+            current_counter = data.get("counter", 0)
+            next_counter = current_counter + 1
+            
+            # Atualiza o contador no arquivo
+            with open(self.counter_file, 'w') as f:
+                json.dump({"counter": next_counter}, f)
+            
+            return next_counter
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao ler contador: {e}, usando 1")
+            return 1
+    
+    def _get_current_counter(self):
+        """Obtém o contador atual sem incrementar"""
+        try:
+            with open(self.counter_file, 'r') as f:
+                data = json.load(f)
+            return data.get("counter", 0)
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao ler contador atual: {e}")
+            return 0
+    
+    def _update_counter_batch(self, count):
+        """Atualiza o contador após enviar um lote de oportunidades"""
+        try:
+            current_counter = self._get_current_counter()
+            new_counter = current_counter + count
+            
+            with open(self.counter_file, 'w') as f:
+                json.dump({"counter": new_counter}, f)
+            
+            logger.info(f"📊 Contador atualizado: {current_counter} → {new_counter}")
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao atualizar contador: {e}")
     
     def stop_service(self):
         """Para o serviço de monitoramento"""
@@ -211,8 +273,12 @@ class LineMonitoringService:
             return
             
         try:
-            # Envia cada oportunidade como mensagem separada
-            for i, opp in enumerate(new_opportunities, 1):
+            # Obtém o contador inicial para este lote
+            starting_counter = self._get_current_counter()
+            
+            # Envia cada oportunidade como mensagem separada com numeração contínua
+            for i, opp in enumerate(new_opportunities):
+                opportunity_number = starting_counter + i + 1
                 # ⚠️ VALIDAÇÃO DE ODDS ANTES DE ENVIAR
                 current_odds = self.scanner.get_event_odds(opp.event_id)
                 if current_odds:
@@ -242,7 +308,7 @@ class LineMonitoringService:
                 time_str = start_dt_br.strftime('%H:%M')
                 
                 # Cria mensagem individual com formato completo
-                message = f"🎾 OPORTUNIDADE FEMININA {i}\n\n"
+                message = f"🎾 OPORTUNIDADE {opportunity_number}\n\n"
                 message += f"🏆 {opp.league}\n"
                 message += f"⚔️ {opp.match}\n"
                 message += f"🎯 **{target_player}** @ {opp.odd}\n"
@@ -264,8 +330,11 @@ class LineMonitoringService:
                 import time
                 time.sleep(1)
                 
+            # Atualiza o contador após enviar todas as oportunidades
+            self._update_counter_batch(len(new_opportunities))
+                
             # Mensagem final de resumo
-            summary_message = f"�‍🎾 **{len(new_opportunities)} oportunidades FEMININAS** enviadas! (EV: 10-15%)"
+            summary_message = f"�‍🎾 **{len(new_opportunities)} oportunidades** enviadas! (EV: 10-15%)"
             self._send_telegram_message(summary_message)
             
             logger.info(f"Enviadas {len(new_opportunities)} novas oportunidades de {len(opportunities)} encontradas")
