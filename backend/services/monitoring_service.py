@@ -334,8 +334,6 @@ class LineMonitoringService:
             self._update_counter_batch(len(new_opportunities))
                 
             # Mensagem final de resumo
-            summary_message = f"�‍🎾 **{len(new_opportunities)} oportunidades** enviadas! (EV: 10-15%)"
-            self._send_telegram_message(summary_message)
             
             logger.info(f"Enviadas {len(new_opportunities)} novas oportunidades de {len(opportunities)} encontradas")
             

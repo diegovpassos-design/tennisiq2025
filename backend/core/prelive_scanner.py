@@ -141,7 +141,7 @@ class PreLiveScanner:
             logger.error(f"Erro ao buscar jogos futuros: {e}")
             return []
     
-    def get_upcoming_events(self, hours_ahead: int = 48, max_pages: int = 3) -> List[MatchEvent]:
+    def get_upcoming_events(self, hours_ahead: int = 48, max_pages: int = 10) -> List[MatchEvent]:
         """
         Busca jogos de tênis com PAGINAÇÃO para superar limite de 50
         Testa diferentes estratégias para obter mais jogos
@@ -153,18 +153,18 @@ class PreLiveScanner:
             logger.info(f"🔍 Buscando jogos com paginação (até {max_pages} páginas, {hours_ahead}h ahead)")
             
             # ESTRATÉGIA 1: Testar parâmetro limit alto
-            logger.info("🧪 TESTE 1: Parâmetro limit=200")
+            logger.info("🧪 TESTE 1: Parâmetro limit=500")
             params_limit = {
                 "sport_id": self.sport_id_tennis,
                 "token": self.api_token,
-                "limit": 200
+                "limit": 500
             }
             
             response = requests.get(url, params=params_limit, timeout=20)
             if response.status_code == 200:
                 data = response.json()
                 events = data.get("results", [])
-                logger.info(f"📊 Com limit=200: {len(events)} eventos retornados")
+                logger.info(f"📊 Com limit=500: {len(events)} eventos retornados")
                 
                 if len(events) > 50:
                     logger.info("✅ SUCESSO! Parâmetro limit funciona - usando este método")
@@ -178,7 +178,7 @@ class PreLiveScanner:
                     "sport_id": self.sport_id_tennis,
                     "token": self.api_token,
                     "page": page,
-                    "limit": 100
+                    "limit": 200
                 }
                 
                 logger.info(f"📄 Buscando página {page}...")
@@ -204,12 +204,12 @@ class PreLiveScanner:
                 logger.info(f"✅ Página {page}: {len(page_matches)} jogos válidos adicionados")
                 
                 # Se retornou menos que o esperado, pode ser última página
-                if len(events) < 50:
-                    logger.info(f"📋 Página {page} retornou {len(events)} < 50 - provavelmente última página")
+                if len(events) < 150:
+                    logger.info(f"📋 Página {page} retornou {len(events)} < 150 - provavelmente última página")
                     break
             
             # ESTRATÉGIA 3: Múltiplas requests por dia (se ainda temos poucos jogos)
-            if len(all_matches) < 50:
+            if len(all_matches) < 200:
                 logger.info("🧪 TESTE 3: Requests separadas por dia")
                 
                 from datetime import datetime, timedelta
@@ -362,24 +362,27 @@ class PreLiveScanner:
             # Detecta nível do torneio
             tournament_level = self._detect_tournament_level(match.league)
             
-            # Usa o modelo sofisticado com odds quando disponível
+            # Usa o modelo simplificado baseado em odds
             if odds_data and odds_data.home_od > 1.0 and odds_data.away_od > 1.0:
-                probability = self.tennis_model.calculate_probability(
-                    home_player=match.home,
-                    away_player=match.away,
+                prob_home, prob_away, confidence = self.tennis_model.calculate_match_probability(
+                    player1=match.home,
+                    player2=match.away,
                     surface=match.surface,
-                    tournament_level=tournament_level,
+                    league=match.league,
                     home_odds=odds_data.home_od,
                     away_odds=odds_data.away_od
                 )
+                # Retorna probabilidade do HOME player
+                probability = prob_home
             else:
-                # Fallback para método tradicional
-                probability = self.tennis_model.calculate_probability(
-                    home_player=match.home,
-                    away_player=match.away,
+                # Fallback para método tradicional sem odds
+                prob_home, prob_away, confidence = self.tennis_model.calculate_match_probability(
+                    player1=match.home,
+                    player2=match.away,
                     surface=match.surface,
-                    tournament_level=tournament_level
+                    league=match.league
                 )
+                probability = prob_home
             
             logger.debug(f"Modelo calculou {probability:.1%} para {match.home} vs {match.away} ({match.surface})")
             return probability
@@ -463,20 +466,14 @@ class PreLiveScanner:
     def _assess_opportunity_confidence(self, match: MatchEvent) -> float:
         """Avalia a confiança geral na oportunidade baseada nos dados dos jogadores"""
         try:
-            # Busca dados dos jogadores
-            player1 = self.tennis_model.player_db.get_or_create_player(
-                match.home, 
-                use_real_data=self.tennis_model.use_real_data,
-                real_data_provider=self.tennis_model.real_data_provider
-            )
-            player2 = self.tennis_model.player_db.get_or_create_player(
-                match.away,
-                use_real_data=self.tennis_model.use_real_data, 
-                real_data_provider=self.tennis_model.real_data_provider
-            )
+            # No modelo simplificado, sempre retorna confidence máxima
+            # pois usa apenas dados reais do mercado (odds)
+            return self.tennis_model._assess_data_confidence(match.home, match.away)
             
-            # Usa o método do modelo para avaliar confidence
-            return self.tennis_model._assess_data_confidence(player1, player2)
+        except Exception as e:
+            logger.warning(f"Erro ao avaliar confidence: {e}")
+            # Fallback: confidence média
+            return 0.7
             
         except Exception as e:
             logger.warning(f"Erro ao avaliar confidence: {e}")
