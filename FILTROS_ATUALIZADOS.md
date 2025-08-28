@@ -15,10 +15,12 @@
 - **Arquivo**: `backend/core/prelive_scanner.py` - método `_is_female_match()`
 
 #### **Critérios de Detecção de Jogos Femininos:**
-1. **Liga**: WTA, Women, Ladies, Female, ITF Women, etc.
-2. **Nomes**: Indicadores femininos como Anna, Maria, Elena, etc.
-3. **Duplas**: Formato com "/" indicando duplas femininas
-4. **Top Players**: Lista de jogadoras conhecidas (Swiatek, Sabalenka, etc.)
+1. **Liga WTA**: WTA, Women, Ladies, Female, ITF Women, etc.
+2. **Liga ITF Feminina**: W100, W75, W50, W35, W15 (NOVO!)
+3. **Nomes**: Indicadores femininos como Anna, Maria, Elena, etc.
+4. **Duplas**: Formato com "/" indicando duplas femininas
+5. **Top Players**: Lista de jogadoras conhecidas (Swiatek, Sabalenka, etc.)
+6. **Anti-Masculino**: Rejeita jogadores ATP conhecidos primeiro
 
 ### 📊 **3. PARÂMETROS ATUALIZADOS**
 
