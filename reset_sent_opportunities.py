@@ -19,6 +19,42 @@ def main():
         # Caminho do banco de dados
         db_path = Path("storage/database/prelive.db")
         
+        # Garante que o diretório existe
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Conecta ao banco
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Cria a tabela se não existir
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sent_opportunities (
+                event_id TEXT PRIMARY KEY,
+                match_info TEXT,
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Conta quantas oportunidades existem
+        cursor.execute("SELECT COUNT(*) FROM sent_opportunities")
+        count_before = cursor.fetchone()[0]
+        logger.info(f"📊 Oportunidades enviadas atualmente: {count_before}")
+        
+        # Remove todas as oportunidades enviadas
+        cursor.execute("DELETE FROM sent_opportunities")
+        
+        # Confirma as mudanças
+        conn.commit()
+        
+        # Verifica se foi limpo
+        cursor.execute("SELECT COUNT(*) FROM sent_opportunities")
+        count_after = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        logger.info(f"✅ Reset concluído! Removidas: {count_before}, Restantes: {count_after}")
+        logger.info("🎯 Sistema pronto para detectar novas oportunidades!")
+        
         if not db_path.exists():
             logger.warning("⚠️ Banco de dados não encontrado - criando novo")
             db_path.parent.mkdir(parents=True, exist_ok=True)
