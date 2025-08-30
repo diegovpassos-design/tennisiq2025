@@ -616,15 +616,29 @@ class PreLiveScanner:
             # Indicadores específicos de duplas femininas
             " wd", "wd ", "women doubles", "women's doubles",
             # Torneios específicos femininos
-            "(w)", " women", "utr pro", "pro circuit"
+            "(w)", " women", "pro circuit"
         ]
-        
+
+        # Regra especial para UTR: só aceita se tiver women, w ou feminino
+        if "utr pro" in league_lower:
+            if ("women" in league_lower or
+                league_lower.strip().endswith(" w") or
+                league_lower.strip().endswith(" women") or
+                "feminino" in league_lower or
+                league_lower.strip().endswith(" feminino") or
+                league_lower.strip().endswith(" fem")):
+                logger.info(f"✅ Liga feminina detectada por UTR + women/w/feminino: {match.league}")
+                return True
+            else:
+                logger.info(f"❌ UTR Pro detectado sem indicador feminino: {match.league}")
+                return False
+
         # Verifica se a liga indica tênis feminino
         for indicator in female_league_indicators:
             if indicator in league_lower:
                 logger.info(f"✅ Liga feminina detectada por indicador: {indicator}")
                 return True
-        
+
         # TERCEIRO: Se não encontrou indicadores claros na LIGA, rejeita por segurança
         logger.info(f"❓ Liga indefinida - rejeitando por segurança: {match.league}")
         return False
