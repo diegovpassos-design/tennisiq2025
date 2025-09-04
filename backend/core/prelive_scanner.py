@@ -488,7 +488,7 @@ class PreLiveScanner:
         - EV: 10% - 15% (ATUALIZADO)
         """
         # Filtro 1: Range de odds
-        if odds < 6.00 or odds > 4.00:
+        if odds < 4.00 or odds > 6.00:
             logger.info(f"Odds {odds:.2f} fora do range 4.00-6.00 - rejeitando")
             return False
         
@@ -535,7 +535,7 @@ class PreLiveScanner:
                 
                 logger.info(f"  💰 Odds: {match.home} {odds_data.home_od:.2f} | {match.away} {odds_data.away_od:.2f}")
                 
-                # FILTRO 3: Verificar se QUALQUER odd está na faixa 2.20-2.40
+                # FILTRO 3: Verificar se QUALQUER odd está na faixa definida (padrão: 4.00-6.00)
                 home_in_range = odd_min <= odds_data.home_od <= odd_max
                 away_in_range = odd_min <= odds_data.away_od <= odd_max
                 
