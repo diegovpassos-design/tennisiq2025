@@ -488,8 +488,8 @@ class PreLiveScanner:
         - EV: 10% - 15% (ATUALIZADO)
         """
         # Filtro 1: Range de odds
-        if odds < 1.70 or odds > 3.00:
-            logger.info(f"Odds {odds:.2f} fora do range 1.70-3.00 - rejeitando")
+        if odds < 4.00 or odds > 6.00:
+            logger.info(f"Odds {odds:.2f} fora do range 4.00-6.00 - rejeitando")
             return False
         
         # Filtro 2: Range de EV RESTRITO para 10%-15%
@@ -502,10 +502,10 @@ class PreLiveScanner:
     
     def scan_opportunities(self, 
                           hours_ahead: int = 48,
-                          odd_min: float = 2.20,
-                          odd_max: float = 2.40) -> List[Opportunity]:
+                          odd_min: float = 4.00,
+                          odd_max: float = 6.00) -> List[Opportunity]:
         """
-        Escaneia oportunidades SIMPLES - apenas jogos femininos com odds 2.20-2.40
+        Escaneia oportunidades SIMPLES - apenas jogos femininos com odds 4.00-6.00
         SEM cálculos de EV ou probabilidades complexas
         """
         logger.info("🎾 Iniciando escaneamento SIMPLIFICADO...")
