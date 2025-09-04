@@ -488,7 +488,7 @@ class PreLiveScanner:
         - EV: 10% - 15% (ATUALIZADO)
         """
         # Filtro 1: Range de odds
-        if odds < 4.00 or odds > 6.00:
+        if odds < 6.00 or odds > 4.00:
             logger.info(f"Odds {odds:.2f} fora do range 4.00-6.00 - rejeitando")
             return False
         
