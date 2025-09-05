@@ -165,12 +165,12 @@ class LineMonitoringService:
                 logger.info("🧹 Limpando oportunidades expiradas...")
                 self.db.cleanup_expired_sent_opportunities()
                 
-                # Escaneia oportunidades SIMPLES - apenas odds 2.20-2.40 em jogos femininos
+                # Escaneia oportunidades SIMPLES - apenas odds 4.00-6.00 em jogos femininos
                 logger.info("📡 Fazendo scan SIMPLIFICADO da API...")
                 opportunities = self.scanner.scan_opportunities(
                     hours_ahead=72,
-                    odd_min=2.20,  # Odds mínima 2.20
-                    odd_max=2.40   # Odds máxima 2.40
+                    odd_min=4.00,  # Odds mínima 4.00
+                    odd_max=6.00   # Odds máxima 6.00
                 )
                 
                 logger.info(f"📊 Encontradas {len(opportunities) if opportunities else 0} oportunidades")
@@ -432,8 +432,8 @@ class LineMonitoringService:
         
         opportunities = self.scanner.scan_opportunities(
             hours_ahead=72,
-            odd_min=2.20,
-            odd_max=2.40
+            odd_min=4.00,
+            odd_max=6.00
         )
         
         if opportunities:
